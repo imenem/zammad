@@ -2,6 +2,10 @@
 module Ticket::Search
   extend ActiveSupport::Concern
 
+  included do
+    include CanSearchSortable
+  end
+
   # methods defined here are going to extend the class, not the instance of it
   class_methods do
 
@@ -116,10 +120,10 @@ returns
       end
 
       # check sort
-      sort_by = search_get_sort_by(params)
+      sort_by = search_get_sort_by(params, 'created_at')
 
       # check order
-      order_by = search_get_order_by(params)
+      order_by = search_get_order_by(params, 'desc')
 
       # try search index backend
       if condition.blank? && SearchIndexBackend.enabled?
@@ -172,22 +176,25 @@ returns
 
       # do query
       # - stip out * we already search for *query* -
+
+      order_select_sql = search_get_order_select_sql(sort_by, order_by, 'tickets.created_at')
+      order_sql        = search_get_order_sql(sort_by, order_by, 'tickets.created_at DESC')
       if query
         query.delete! '*'
-        tickets_all = Ticket.select('DISTINCT(tickets.id), ' + search_get_order_select_sql(sort_by, order_by))
+        tickets_all = Ticket.select('DISTINCT(tickets.id), ' + order_select_sql)
                             .where(access_condition)
                             .where('(tickets.title LIKE ? OR tickets.number LIKE ? OR ticket_articles.body LIKE ? OR ticket_articles.from LIKE ? OR ticket_articles.to LIKE ? OR ticket_articles.subject LIKE ?)', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%" )
                             .joins(:articles)
-                            .order(search_get_order_sql(sort_by, order_by))
+                            .order(order_sql)
                             .offset(offset)
                             .limit(limit)
       else
         query_condition, bind_condition, tables = selector2sql(condition)
-        tickets_all = Ticket.select('DISTINCT(tickets.id), ' + search_get_order_select_sql(sort_by, order_by))
+        tickets_all = Ticket.select('DISTINCT(tickets.id), ' + order_select_sql)
                             .joins(tables)
                             .where(access_condition)
                             .where(query_condition, *bind_condition)
-                            .order(search_get_order_sql(sort_by, order_by))
+                            .order(order_sql)
                             .offset(offset)
                             .limit(limit)
       end
@@ -206,86 +213,6 @@ returns
         tickets.push Ticket.lookup(id: ticket.id)
       end
       tickets
-    end
-
-    def search_get_sort_by(params)
-      sort_by = []
-      if params[:sort_by].present? && params[:sort_by].is_a?(String)
-        params[:sort_by] = [ params[:sort_by] ]
-      elsif params[:sort_by].blank?
-        params[:sort_by] = []
-      end
-
-      # check order
-      params[:sort_by].each do |value|
-        next if value.blank?
-        next if Ticket.columns_hash[ value ].blank?
-
-        sort_by.push(value)
-      end
-
-      if sort_by.blank?
-        sort_by.push('created_at')
-      end
-
-      sort_by
-    end
-
-    def search_get_order_by(params)
-      order_by = []
-      if params[:order_by].present? && params[:order_by].is_a?(String)
-        params[:order_by] = [ params[:order_by] ]
-      elsif params[:order_by].blank?
-        params[:order_by] = []
-      end
-
-      # check order
-      params[:order_by].each do |value|
-        next if value.blank?
-        next if value !~ /\A(asc|desc)\z/i
-
-        order_by.push(value.downcase)
-      end
-
-      if order_by.blank?
-        order_by.push('desc')
-      end
-
-      order_by
-    end
-
-    def search_get_order_select_sql(sort_by, order_by)
-      sql = []
-
-      sort_by.each_with_index do |value, index|
-        next if value.blank?
-        next if order_by[index].blank?
-
-        sql.push( 'tickets.' + value )
-      end
-
-      if sql.blank?
-        sql.push('tickets.created_at')
-      end
-
-      sql.join(', ')
-    end
-
-    def search_get_order_sql(sort_by, order_by)
-      sql = []
-
-      sort_by.each_with_index do |value, index|
-        next if value.blank?
-        next if order_by[index].blank?
-
-        sql.push( 'tickets.' + value + ' ' + order_by[index] )
-      end
-
-      if sql.blank?
-        sql.push('tickets.created_at DESC')
-      end
-
-      sql.join(', ')
     end
   end
 

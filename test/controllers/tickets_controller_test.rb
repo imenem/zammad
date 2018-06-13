@@ -2210,7 +2210,6 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
     result = JSON.parse(@response.body)
     assert_equal(Hash, result.class)
     assert_equal([ticket2.id, ticket1.id], result['tickets'])
-
   end
 
 end
