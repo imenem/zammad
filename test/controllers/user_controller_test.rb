@@ -1067,6 +1067,8 @@ class UserControllerTest < ActionDispatch::IntegrationTest
       updated_by_id: 1,
       created_by_id: 1,
     )
+    Scheduler.worker(true)
+    sleep 2 # let es time to come ready
 
     credentials = ActionController::HttpAuthentication::Basic.encode_credentials('rest-admin@example.com', 'adminpw')
     get "/api/v1/users/search?query=#{CGI.escape(firstname)}", params: {}, headers: @headers.merge('Authorization' => credentials)
