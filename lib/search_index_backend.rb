@@ -271,7 +271,7 @@ return search result
 
   result = SearchIndexBackend.search('search query', limit, 'User')
 
-  result = SearchIndexBackend.search('search query', limit, 'User', 'updated_at', 'desc')
+  result = SearchIndexBackend.search('search query', limit, 'User', ['updated_at'], ['desc'])
 
   result = [
     {
@@ -306,7 +306,7 @@ return search result
   end
 
   # rubocop:disable Metrics/ParameterLists
-  def self.search_by_index(query, limit = 10, index = nil, query_extention = {}, from, sort_by, order_by)
+  def self.search_by_index(query, limit = 10, index = nil, query_extention = {}, from = 0, sort_by = [], order_by = [])
     # rubocop:enable Metrics/ParameterLists
     return [] if query.blank?
 
@@ -410,8 +410,9 @@ return search result
                       order: 'desc'
                     }
                   })
-      result.push('_score')
     end
+
+    result.push('_score')
 
     result
   end
