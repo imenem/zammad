@@ -150,7 +150,7 @@ returns
 
         query_extention['bool']['must'].push access_condition
 
-        items = SearchIndexBackend.search(query, limit, 'Ticket', query_extention, offset)
+        items = SearchIndexBackend.search(query, limit, 'Ticket', query_extention, offset, sort_by, order_by)
         if !full
           ids = []
           items.each do |item|

@@ -398,7 +398,7 @@ return search result
       next if order_by[index].blank?
 
       result.push({
-                    [value] => {
+                    value => {
                       order: order_by[index]
                     }
                   })
