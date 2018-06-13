@@ -1078,7 +1078,7 @@ class UserControllerTest < ActionDispatch::IntegrationTest
     result = JSON.parse(@response.body)
     assert_equal(Array, result.class)
     result.collect! { |v| v['id'] }
-    assert_equal([user1.id, user2.id], result)
+    assert_equal([user2.id, user1.id], result)
 
     credentials = ActionController::HttpAuthentication::Basic.encode_credentials('rest-admin@example.com', 'adminpw')
     get "/api/v1/users/search?query=#{CGI.escape(firstname)}", params: { sort_by: 'firstname', order_by: 'asc' }, headers: @headers.merge('Authorization' => credentials)
