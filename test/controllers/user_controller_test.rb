@@ -1055,6 +1055,8 @@ class UserControllerTest < ActionDispatch::IntegrationTest
       created_by_id: 1,
     )
 
+    travel 2.seconds
+
     user2 = User.create_or_update(
       login: 'rest-user_search_sortableB@example.com',
       firstname: "#{firstname} B",
