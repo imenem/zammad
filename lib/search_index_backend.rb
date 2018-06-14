@@ -510,7 +510,7 @@ return search result
                   })
     end
 
-    #result.push('_score')
+    result.push('_score')
 
     result
   end
