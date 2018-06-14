@@ -189,6 +189,104 @@ create/update/delete index
 
 =begin
 
+This function will return a index mapping based on the
+attributes of the database table of the existing object.
+
+mapping = SearchIndexBackend.get_mapping_properties_object(Ticket)
+
+Returns:
+
+mapping = {
+  User: {
+    properties: {
+      firstname: {
+        type: 'keyword',
+      },
+    }
+  }
+}
+
+=end
+
+  def self.get_mapping_properties_object(object)
+    result = {
+      object.name => {
+        properties: {
+
+        }
+      }
+    }
+
+    object.columns_hash.each do |key, value|
+      if value.type == :string && value.limit < 500
+        result[object.name][:properties][key] = {
+          type: 'keyword',
+        }
+      elsif value.type == :integer
+        result[object.name][:properties][key] = {
+          type: 'integer',
+        }
+      elsif value.type == :datetime
+        result[object.name][:properties][key] = {
+          type: 'date',
+        }
+      elsif value.type == :boolean
+        result[object.name][:properties][key] = {
+          type: 'boolean',
+        }
+      elsif value.type == :binary
+        result[object.name][:properties][key] = {
+          type: 'binary',
+        }
+      elsif value.type == :bigint
+        result[object.name][:properties][key] = {
+          type: 'long',
+        }
+      elsif value.type == :decimal
+        result[object.name][:properties][key] = {
+          type: 'float',
+        }
+      elsif value.type == :date
+        result[object.name][:properties][key] = {
+          type: 'date',
+        }
+      end
+    end
+
+    # es with mapper-attachments plugin
+    info = SearchIndexBackend.info
+    number = nil
+    if info.present?
+      number = info['version']['number'].to_s
+    end
+
+    if object.name == 'Ticket'
+
+      result[object.name][:_source] = {
+        excludes: [ 'article.attachment' ]
+      }
+
+      if number.blank? || number =~ /^[2-4]\./ || number =~ /^5\.[0-5]\./
+        result[object.name][:_source] = {
+          excludes: [ 'article.attachment' ]
+        }
+        result[object.name][:properties][:article] = {
+          type: 'nested',
+          include_in_parent: true,
+          properties: {
+            attachment: {
+              type: 'attachment',
+            }
+          }
+        }
+      end
+    end
+
+    result
+  end
+
+=begin
+
 add new object to search index
 
   SearchIndexBackend.add('Ticket', some_data_object)
@@ -399,20 +497,20 @@ return search result
 
       result.push({
                     value => {
-                      order: order_by[index]
-                    }
+                      order: order_by[index],
+                    },
                   })
     end
 
     if result.blank?
       result.push({
                     created_at: {
-                      order: 'desc'
-                    }
+                      order: 'desc',
+                    },
                   })
     end
 
-    result.push('_score')
+    #result.push('_score')
 
     result
   end

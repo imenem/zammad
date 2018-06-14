@@ -1080,7 +1080,6 @@ class UserControllerTest < ActionDispatch::IntegrationTest
     result.collect! { |v| v['id'] }
     assert_equal([user2.id, user1.id], result)
 
-    credentials = ActionController::HttpAuthentication::Basic.encode_credentials('rest-admin@example.com', 'adminpw')
     get "/api/v1/users/search?query=#{CGI.escape(firstname)}", params: { sort_by: 'firstname', order_by: 'asc' }, headers: @headers.merge('Authorization' => credentials)
     assert_response(200)
     result = JSON.parse(@response.body)
@@ -1088,7 +1087,6 @@ class UserControllerTest < ActionDispatch::IntegrationTest
     result.collect! { |v| v['id'] }
     assert_equal([user1.id, user2.id], result)
 
-    credentials = ActionController::HttpAuthentication::Basic.encode_credentials('rest-admin@example.com', 'adminpw')
     get "/api/v1/users/search?query=#{CGI.escape(firstname)}", params: { sort_by: 'firstname', order_by: 'desc' }, headers: @headers.merge('Authorization' => credentials)
     assert_response(200)
     result = JSON.parse(@response.body)
@@ -1096,7 +1094,6 @@ class UserControllerTest < ActionDispatch::IntegrationTest
     result.collect! { |v| v['id'] }
     assert_equal([user2.id, user1.id], result)
 
-    credentials = ActionController::HttpAuthentication::Basic.encode_credentials('rest-admin@example.com', 'adminpw')
     get "/api/v1/users/search?query=#{CGI.escape(firstname)}", params: { sort_by: %w[firstname created_at], order_by: %w[desc asc] }, headers: @headers.merge('Authorization' => credentials)
     assert_response(200)
     result = JSON.parse(@response.body)

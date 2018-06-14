@@ -23,49 +23,25 @@ namespace :searchindex do
     if info.present?
       number = info['version']['number'].to_s
     end
+
+    mapping = {}
+    mapping.merge!( SearchIndexBackend.get_mapping_properties_object(Ticket) )
+    mapping.merge!( SearchIndexBackend.get_mapping_properties_object(User) )
+    mapping.merge!( SearchIndexBackend.get_mapping_properties_object(Organization) )
+
+    # create indexes
+    SearchIndexBackend.index(
+      action: 'create',
+      data: {
+        mappings: mapping
+      }
+    )
+
     if number.blank? || number =~ /^[2-4]\./ || number =~ /^5\.[0-5]\./
-
-      # create indexes
-      SearchIndexBackend.index(
-        action: 'create',
-        data: {
-          mappings: {
-            Ticket: {
-              _source: { excludes: [ 'article.attachment' ] },
-              properties: {
-                article: {
-                  type: 'nested',
-                  include_in_parent: true,
-                  properties: {
-                    attachment: {
-                      type: 'attachment',
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      )
-      puts 'done'
       Setting.set('es_pipeline', '')
-
-    # es with ingest-attachment plugin
-    else
-
-      # create indexes
-      SearchIndexBackend.index(
-        action: 'create',
-        data: {
-          mappings: {
-            Ticket: {
-              _source: { excludes: [ 'article.attachment' ] },
-            }
-          }
-        }
-      )
-      puts 'done'
     end
+
+    puts 'done'
 
     Rake::Task['searchindex:create_pipeline'].execute
   end
