@@ -33,7 +33,6 @@ returns
 
       # check order
       params[:sort_by].each do |value|
-        next if value.blank?
 
         # only accept values which are set for the db schema
         if columns_hash[ value ].blank?
@@ -81,8 +80,9 @@ returns
 
       # check order
       params[:order_by].each do |value|
-        next if value.blank?
-        next if value !~ /\A(asc|desc)\z/i
+        if value !~ /\A(asc|desc)\z/i
+          raise "Found invalid order by value #{value}. Please use 'asc' or 'desc'."
+        end
 
         order_by.push(value.downcase)
       end
