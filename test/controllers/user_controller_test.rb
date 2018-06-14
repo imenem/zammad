@@ -1051,12 +1051,10 @@ class UserControllerTest < ActionDispatch::IntegrationTest
       active: true,
       roles: roles,
       organization_id: @organization.id,
+      created_at: '2016-02-05 17:42:00',
       updated_by_id: 1,
       created_by_id: 1,
     )
-
-    travel 2.seconds
-
     user2 = User.create_or_update(
       login: 'rest-user_search_sortableB@example.com',
       firstname: "#{firstname} B",
@@ -1066,6 +1064,7 @@ class UserControllerTest < ActionDispatch::IntegrationTest
       active: true,
       roles: roles,
       organization_id: @organization.id,
+      created_at: '2016-02-05 19:42:00',
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -1073,7 +1072,7 @@ class UserControllerTest < ActionDispatch::IntegrationTest
     sleep 2 # let es time to come ready
 
     credentials = ActionController::HttpAuthentication::Basic.encode_credentials('rest-admin@example.com', 'adminpw')
-    get "/api/v1/users/search?query=#{CGI.escape(firstname)}", params: {}, headers: @headers.merge('Authorization' => credentials)
+    get "/api/v1/users/search?query=#{CGI.escape(firstname)}", params: { sort_by: 'created_at', order_by: 'asc' }, headers: @headers.merge('Authorization' => credentials)
     assert_response(200)
     result = JSON.parse(@response.body)
     assert_equal(Array, result.class)
