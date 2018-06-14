@@ -29,10 +29,21 @@ returns
         params[:sort_by] = []
       end
 
+      mapping = SearchIndexBackend.get_mapping_properties_object(self)
+
       # check order
       params[:sort_by].each do |value|
         next if value.blank?
-        next if columns_hash[ value ].blank?
+
+        # only accept values which are set for the db schema
+        if columns_hash[ value ].blank?
+          raise "Found invalid column '#{value}' for sorting."
+        end
+
+        # only accept values which are mapped for elastic search
+        if mapping[name][:properties][ value ].blank?
+          raise "Found invalid sorting column '#{value}'. Currently this column is disabled for sorting purposes."
+        end
 
         sort_by.push(value)
       end
