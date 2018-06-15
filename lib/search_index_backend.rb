@@ -217,8 +217,10 @@ mapping = {
       }
     }
 
+    store_columns = %w[preferences data]
+
     object.columns_hash.each do |key, value|
-      if value.type == :string && ( value.limit < 500 || key == 'note' )
+      if value.type == :string && value.limit <= 5000 && store_columns.exclude?(key)
         result[object.name][:properties][key] = {
           type: 'keyword',
         }
