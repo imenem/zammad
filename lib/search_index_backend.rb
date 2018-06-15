@@ -218,7 +218,7 @@ mapping = {
     }
 
     object.columns_hash.each do |key, value|
-      if value.type == :string && value.limit < 500
+      if value.type == :string && ( value.limit < 500 || key == 'note' )
         result[object.name][:properties][key] = {
           type: 'keyword',
         }
