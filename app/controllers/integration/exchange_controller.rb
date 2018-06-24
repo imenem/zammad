@@ -16,9 +16,13 @@ class Integration::ExchangeController < ApplicationController
         client.http.ssl_config.verify_mode = OpenSSL::SSL::VERIFY_NONE
       end
 
-      {
-        endpoint: client.try(:autodiscover).try(:ews_url),
-      }
+      begin
+        {
+          endpoint: client.try(:autodiscover).try(:ews_url),
+        }
+      rescue Errno::EADDRNOTAVAIL => e
+        return nil
+      end
     end
   end
 
