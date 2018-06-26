@@ -20,6 +20,7 @@ class ChannelsTelegramController < ApplicationController
   def add
     begin
       channel = Telegram.create_or_update_channel(params[:api_token], params)
+      TelegramUpdatePuller.instance.listen channel
     rescue => e
       raise Exceptions::UnprocessableEntity, e.message
     end
@@ -30,6 +31,7 @@ class ChannelsTelegramController < ApplicationController
     channel = Channel.find_by(id: params[:id], area: 'Telegram::Bot')
     begin
       channel = Telegram.create_or_update_channel(params[:api_token], params, channel)
+      TelegramUpdatePuller.instance.listen channel
     rescue => e
       raise Exceptions::UnprocessableEntity, e.message
     end
@@ -40,6 +42,9 @@ class ChannelsTelegramController < ApplicationController
     channel = Channel.find_by(id: params[:id], area: 'Telegram::Bot')
     channel.active = true
     channel.save!
+
+    TelegramUpdatePuller.instance.listen channel
+
     render json: {}
   end
 
@@ -47,11 +52,17 @@ class ChannelsTelegramController < ApplicationController
     channel = Channel.find_by(id: params[:id], area: 'Telegram::Bot')
     channel.active = false
     channel.save!
+
+    TelegramUpdatePuller.instance.stop_listening channel
+
     render json: {}
   end
 
   def destroy
     channel = Channel.find_by(id: params[:id], area: 'Telegram::Bot')
+
+    TelegramUpdatePuller.instance.stop_listening channel
+
     channel.destroy
     render json: {}
   end

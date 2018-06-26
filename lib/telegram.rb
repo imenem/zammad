@@ -80,17 +80,6 @@ returns
       raise Exceptions::UnprocessableEntity, 'Group invalid!'
     end
 
-    # generate random callback token
-    callback_token = if Rails.env.test?
-                       'callback_token'
-                     else
-                       SecureRandom.urlsafe_base64(10)
-                     end
-
-    # set webhook / callback url for this bot @ telegram
-    callback_url = "#{Setting.get('http_type')}://#{Setting.get('fqdn')}/api/v1/channels_telegram_webhook/#{callback_token}?bid=#{bot['id']}"
-    Telegram.set_webhook(token, callback_url)
-
     if !channel
       channel = Telegram.bot_by_bot_id(bot['id'])
       if !channel
@@ -105,8 +94,6 @@ returns
         first_name: bot['first_name'],
         last_name:  bot['last_name'],
       },
-      callback_token: callback_token,
-      callback_url:   callback_url,
       api_token:      token,
       welcome:        params[:welcome],
       goodbye:        params[:goodbye],
