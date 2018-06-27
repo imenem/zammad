@@ -62,10 +62,16 @@ class SidebarCustomer extends App.Controller
     counter
 
   showCustomer: (el) =>
+    if @ticket.preferences && @ticket.preferences.telegram && @ticket.preferences.telegram.chat_id
+      chat_id = @ticket.preferences.telegram.chat_id
+    else
+      chat_id = null
+
     @elSidebar = el
     new App.WidgetUser(
       el:       @elSidebar
       user_id:  @ticket.customer_id
+      chat_id:  chat_id
       callback: @badgeRenderLocal
     )
 

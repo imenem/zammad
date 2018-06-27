@@ -14,7 +14,7 @@ $high-priority-color: hsl(360,71%,60%);
 $low-priority-color: hsl(200,68%,73%);
 
 $minWidth: 1024px;
-$sidebarWidth: 280px;
+$sidebarWidth: 550px;
 $navigationWidth: 260px;
 
 $highlight-color: hsl(205,90%,60%);
@@ -2522,7 +2522,7 @@ kbd {
 
 .pagination {
   margin: 0 0 0 19px;
-  @includ rtl(margin, 0 19px 0 0);
+  @include rtl(margin, 0 19px 0 0);
   display: flex;
 }
 

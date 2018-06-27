@@ -79,6 +79,7 @@ class App.WidgetUser extends App.Controller
       edit:     true
       user:     user
       userData: userData
+      chat_id:  @chat_id
     )
 
     @$('[contenteditable]').ce(
