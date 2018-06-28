@@ -154,10 +154,8 @@ class App.TicketZoomArticleNew extends App.Controller
     @setArticleTypePre(@type)
     @setArticleTypePost(@type)
 
-    @textarea.keypress((event) =>
-      # on Ctrl+Enter
-      if event.ctrlKey && event.keyCode == 13
-        $('.js-attributeBar .js-submit').first().click()
+    @textarea.bind('keydown', 'ctrl+return', (event) ->
+      $('.js-attributeBar .js-submit').first().click()
     )
 
     new App.WidgetAvatar(
