@@ -49,6 +49,12 @@ class App.TicketZoomArticleNew extends App.Controller
     if @defaults.body or @isIE10()
       @openTextarea(null, true)
 
+    @textarea.keypress((event) =>
+      # on Ctrl+Enter
+      if event.ctrlKey && event.keyCode == 13
+        $('.js-attributeBar .js-submit').first().click()
+    )
+
     # set article type and expand text area
     @bind('ui::ticket::setArticleType', (data) =>
       return if data.ticket.id.toString() isnt @ticket_id.toString()
