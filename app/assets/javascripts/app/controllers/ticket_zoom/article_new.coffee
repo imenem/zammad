@@ -1,4 +1,6 @@
 class App.TicketZoomArticleNew extends App.Controller
+  DEFAULT_TYPE = 'telegram personal-message'
+
   elements:
     '.js-textarea':                       'textarea'
     '.attachmentPlaceholder':             'attachmentPlaceholder'
@@ -29,7 +31,7 @@ class App.TicketZoomArticleNew extends App.Controller
     super
 
     @internalSelector = true
-    @type = @defaults['type'] || 'note'
+    @type = @defaults['type'] || DEFAULT_TYPE
     @setPossibleArticleTypes()
 
     if @permissionCheck('ticket.customer')
@@ -86,7 +88,7 @@ class App.TicketZoomArticleNew extends App.Controller
     # reset new article screen
     @bind('ui::ticket::taskReset', (data) =>
       return if data.ticket_id.toString() isnt @ticket_id.toString()
-      @type     = 'note'
+      @type     = DEFAULT_TYPE
       @defaults = {}
       @render()
     )
