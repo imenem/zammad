@@ -159,6 +159,10 @@ class App.TicketZoomArticleNew extends App.Controller
     @setArticleTypePre(@type)
     @setArticleTypePost(@type)
 
+    @textarea.bind('keydown', 'ctrl+return', (event) ->
+      $('.js-attributeBar .js-submit').first().click()
+    )
+
     new App.WidgetAvatar(
       el:        @$('.js-avatar')
       object_id: App.Session.get('id')
