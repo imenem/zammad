@@ -602,16 +602,16 @@ class App.TicketZoom extends App.Controller
     return if !@ticket
     currentStoreTicket = @ticket.attributes()
     delete currentStoreTicket.article
-    internal = @Config.get('ui_ticket_zoom_article_note_new_internal')
     currentStore  =
       ticket:  currentStoreTicket
       article:
         to:          ''
         cc:          ''
         subject:     ''
-        type:        'note'
+        type:        App.TicketArticle.DEFAULT_TYPE
+        content_type:'text/plain'
         body:        ''
-        internal:    internal
+        internal:    false
         in_reply_to: ''
         subtype:     ''
 

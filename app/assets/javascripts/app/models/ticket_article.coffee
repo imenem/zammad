@@ -1,4 +1,6 @@
 class App.TicketArticle extends App.Model
+  @DEFAULT_TYPE = 'telegram personal-message'
+
   @configure 'TicketArticle', 'from', 'to', 'cc', 'subject', 'body', 'content_type', 'ticket_id', 'type_id', 'sender_id', 'internal', 'in_reply_to', 'form_id', 'subtype', 'time_unit', 'preferences', 'updated_at'
   @extend Spine.Model.Ajax
   @url: @apiPath + '/ticket_articles'
