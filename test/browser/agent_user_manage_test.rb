@@ -1,4 +1,3 @@
-
 require 'browser_test_helper'
 
 class AgentUserManageTest < TestCase
@@ -35,11 +34,7 @@ class AgentUserManageTest < TestCase
     sleep 0.5
     click(css: '.content.active .newTicket .recipientList-entry.js-objectNew')
 
-    watch_for(
-      css: '.content.active .modal',
-      timeout: 1,
-    )
-
+    modal_ready()
     set(
       css: '.content.active .modal input[name="firstname"]',
       value: firstname,
@@ -54,6 +49,8 @@ class AgentUserManageTest < TestCase
     )
 
     click(css: '.content.active .modal button.js-submit')
+    modal_disappear()
+
     sleep 4
 
     # check is used to check selected
@@ -170,10 +167,7 @@ class AgentUserManageTest < TestCase
     click(css: '.content.active .tabsSidebar .sidebar[data-tab="customer"] .js-actions')
     click(css: '.content.active .tabsSidebar .sidebar[data-tab="customer"] .js-actions li[data-type="customer-change"]')
 
-    watch_for(
-      css: '.content.active .modal',
-    )
-
+    modal_ready()
     click(css: '.content.active .modal [name="customer_id_completion"]')
 
     # check if pulldown is open, it's not working stable via selenium
@@ -230,10 +224,7 @@ class AgentUserManageTest < TestCase
     )
 
     click(css: '.content.active .modal button.js-submit')
-
-    watch_for_disappear(
-      css: '.content.active .modal',
-    )
+    modal_disappear()
 
     watch_for(
       css: '.content.active .tabsSidebar .sidebar[data-tab="customer"]',

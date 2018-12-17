@@ -2,9 +2,10 @@ source 'https://rubygems.org'
 
 # core - base
 ruby '2.4.4'
-gem 'rails', '5.1.5'
+gem 'rails', '5.1.6.1'
 
 # core - rails additions
+gem 'activerecord-import'
 gem 'activerecord-session_store'
 gem 'composite_primary_keys'
 gem 'json'
@@ -33,22 +34,19 @@ gem 'argon2'
 # performance - Memcached
 gem 'dalli'
 
-# asset handling
-group :assets do
-  # asset handling - coffee-script
-  gem 'coffee-rails'
-  gem 'coffee-script-source'
+# asset handling - coffee-script
+gem 'coffee-rails'
+gem 'coffee-script-source'
 
-  # asset handling - frontend templating
-  gem 'eco'
+# asset handling - frontend templating
+gem 'eco'
 
-  # asset handling - SASS
-  gem 'sass-rails'
+# asset handling - SASS
+gem 'sassc-rails'
 
-  # asset handling - pipeline
-  gem 'sprockets'
-  gem 'uglifier'
-end
+# asset handling - pipeline
+gem 'sprockets'
+gem 'uglifier'
 
 gem 'autoprefixer-rails'
 
@@ -76,11 +74,11 @@ gem 'omniauth-weibo-oauth2'
 # channels
 gem 'koala'
 gem 'telegramAPI'
-gem 'twitter'
+gem 'twitter', git: 'https://github.com/sferik/twitter.git'
 
 # channels - email additions
 gem 'htmlentities'
-gem 'mail', '>= 2.7.1.rc1'
+gem 'mail', '2.6.6'
 gem 'mime-types'
 gem 'rchardet', '>= 1.8.0'
 gem 'valid_email2'
@@ -104,6 +102,9 @@ gem 'icalendar-recurrence'
 # feature - phone number formatting
 gem 'telephone_number'
 
+# feature - SMS
+gem 'twilio-ruby'
+
 # integrations
 gem 'clearbit'
 gem 'net-ldap'
@@ -111,13 +112,18 @@ gem 'slack-notifier'
 gem 'zendesk_api'
 
 # integrations - exchange
-gem 'autodiscover', git: 'https://github.com/thorsteneckel/autodiscover.git'
-gem 'rubyntlm', git: 'https://github.com/wimm/rubyntlm.git'
+gem 'autodiscover', git: 'https://github.com/zammad-deps/autodiscover'
+gem 'rubyntlm', git: 'https://github.com/wimm/rubyntlm'
 gem 'viewpoint'
 
 # Gems used only for develop/test and not required
 # in production environments by default.
 group :development, :test do
+
+  # app boottime improvement
+  gem 'spring'
+  gem 'spring-commands-rspec'
+  gem 'spring-commands-testunit'
 
   # debugging
   gem 'byebug'
@@ -144,7 +150,7 @@ group :development, :test do
   # livereload on template changes (html, js, css)
   gem 'guard',             require: false
   gem 'guard-livereload',  require: false
-  gem 'rack-livereload'
+  gem 'rack-livereload',   require: false
   gem 'rb-fsevent',        require: false
 
   # auto symlinking
@@ -158,14 +164,16 @@ group :development, :test do
   # changelog generation
   gem 'github_changelog_generator'
 
-  # Setting ENV for testing purposes
-  gem 'figaro'
-
-  # Use Factory Bot for generating random test data
+  # generate random test data
   gem 'factory_bot_rails'
+  gem 'faker'
 
   # mock http calls
   gem 'webmock'
+
+  # record and replay TCP/HTTP transactions
+  gem 'tcr', git: 'https://github.com/zammad-deps/tcr'
+  gem 'vcr'
 end
 
 # Want to extend Zammad with additional gems?
@@ -174,4 +182,5 @@ end
 #               without having your changes overwritten during upgrades.)
 # ZAMMAD DEVS:  Consult the internal wiki
 #               (or else risk pushing unwanted changes to Gemfile.lock!)
+#               https://git.znuny.com/zammad/zammad/wikis/Tips#user-content-customizing-the-gemfile
 eval_gemfile 'Gemfile.local' if File.exist?('Gemfile.local')

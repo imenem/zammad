@@ -441,21 +441,21 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
       },
       'it': {
         '<strong>Chat</strong> with us!': '<strong>Chatta</strong> con noi!',
-        'Scroll down to see new messages': 'Scorrere verso il basso per vedere i nuovi messaggi',
+        'Scroll down to see new messages': 'Scorri verso il basso per vedere i nuovi messaggi',
         'Online': 'Online',
         'Offline': 'Offline',
-        'Connecting': 'Collegamento',
+        'Connecting': 'Collegamento in corso',
         'Connection re-established': 'Collegamento ristabilito',
         'Today': 'Oggi',
         'Send': 'Invio',
-        'Chat closed by %s': 'Conversazione chiusa da %s',
-        'Compose your message...': 'Comporre il tuo messaggio...',
-        'All colleagues are busy.': 'Tutti i colleghi sono occupati.',
-        'You are on waiting list position <strong>%s</strong>.': 'Siete in posizione lista d\' attesa <strong>%s</strong>.',
-        'Start new conversation': 'Avviare una nuova conversazione',
-        'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Dal momento che non hai risposto negli ultimi %s minuti la tua conversazione con <strong>%s</strong> si è chiusa.',
-        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Dal momento che non hai risposto negli ultimi %s minuti la tua conversazione si è chiusa.',
-        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Ci dispiace, ci vuole più tempo come previsto per ottenere uno slot vuoto. Per favore riprova più tardi o inviaci un\' e-mail. Grazie!'
+        'Chat closed by %s': 'Chat chiusa da %s',
+        'Compose your message...': 'Componi il tuo messaggio...',
+        'All colleagues are busy.': 'Tutti gli operatori sono occupati.',
+        'You are on waiting list position <strong>%s</strong>.': 'Sei in posizione <strong>%s</strong> nella lista d\'attesa.',
+        'Start new conversation': 'Avvia una nuova chat',
+        'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Dal momento che non hai risposto negli ultimi %s minuti la tua chat con <strong>%s</strong> è stata chiusa.',
+        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Dal momento che non hai risposto negli ultimi %s minuti la tua chat è stata chiusa.',
+        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Ci dispiace, ci vuole più tempo del previsto per arrivare al tuo turno. Per favore riprova più tardi o inviaci un\'email. Grazie!'
       },
       'pl': {
         '<strong>Chat</strong> with us!': '<strong>Czatuj</strong> z nami!',
@@ -510,6 +510,24 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
         'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': '由於你超過 %s 分鐘沒有回應, 你與 <strong>%s</strong> 的對話已被關閉.',
         'Since you didn\'t respond in the last %s minutes your conversation got closed.': '由於你超過 %s 分鐘沒有任何回應, 該對話已被關閉.',
         'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': '非常抱歉, 當前需要等候更長的時間方可排入對話程序, 請稍後重試或向我們寄送電子郵件. 謝謝!'
+      },
+      'ru': {
+        '<strong>Chat</strong> with us!': 'Напишите нам!',
+        'Scroll down to see new messages': 'Прокрутите, чтобы увидеть новые сообщения',
+        'Online': 'Онлайн',
+        'Offline': 'Оффлайн',
+        'Connecting': 'Подключение',
+        'Connection re-established': 'Подключение восстановлено',
+        'Today': 'Сегодня',
+        'Send': 'Отправить',
+        'Chat closed by %s': '%s закрыл чат',
+        'Compose your message...': 'Напишите сообщение...',
+        'All colleagues are busy.': 'Все сотрудники заняты',
+        'You are on waiting list position %s.': 'Вы в списке ожидания под номером %s',
+        'Start new conversation': 'Начать новую переписку.',
+        'Since you didn\'t respond in the last %s minutes your conversation with %s got closed.': 'Поскольку вы не отвечали в течение последних %s минут, ваш разговор с %s был закрыт.',
+        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Поскольку вы не отвечали в течение последних %s минут, ваш разговор был закрыт.',
+        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'К сожалению, ожидание свободного места требует больше времени. Повторите попытку позже или отправьте нам электронное письмо. Спасибо!'
       }
     };
 
@@ -1544,10 +1562,9 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
     };
 
     ZammadChat.prototype.onCssLoaded = function() {
+      this.cssLoaded = true;
       if (this.socketReady) {
         return this.onReady();
-      } else {
-        return this.cssLoaded = true;
       }
     };
 

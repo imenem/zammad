@@ -1,4 +1,3 @@
-
 require 'browser_test_helper'
 
 class MaintenanceLoginMessageTest < TestCase
@@ -64,6 +63,7 @@ class MaintenanceLoginMessageTest < TestCase
     watch_for_disappear(
       browser: browser2,
       css: '.js-maintenanceLogin',
+      timeout: 30,
     )
   end
 

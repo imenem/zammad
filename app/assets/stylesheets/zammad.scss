@@ -213,19 +213,6 @@ ol, ul {
   cursor: not-allowed;
 }
 
-.zIndex-1,
-.zIndex-2,
-.zIndex-3,
-.zIndex-4,
-.zIndex-5,
-.zIndex-6,
-.zIndex-7,
-.zIndex-8,
-.zIndex-9,
-.zIndex-10 {
-  position: relative;
-}
-
 .zIndex-1 {
   z-index: 100;
 }
@@ -1053,7 +1040,7 @@ th.align-right {
   padding: 0;
 }
 
-.table tr.is-inactive {
+.table tr.is-inactive, .table tr td span.is-inactive {
   color: #bbb;
   text-decoration: line-through;
 
@@ -1358,7 +1345,8 @@ label,
 .inline-label,
 .label-success,
 .label-warning,
-.label-danger {
+.label-danger,
+.fileUpload label {
   font-size: inherit;
   font-weight: inherit;
   text-align: inherit;
@@ -2016,7 +2004,8 @@ input.has-error {
 }
 
 .selected-clue {
-  @extend .zIndex-6;
+  position: relative;
+  @extend .zIndex-7;
   pointer-events: none;
 }
 
@@ -2238,6 +2227,10 @@ kbd {
   .help-text,
   .help-block {
     color: hsl(198,19%,72%);
+  }
+  .content-controls-align-right {
+    display: flex;
+    justify-content: flex-end;
   }
 }
 
@@ -2721,6 +2714,14 @@ ol.tabs li {
   }
 }
 
+.icon-arrow-left,
+.icon-arrow-right,
+.icon-line-left-arrow,
+.icon-line-right-arrow,
+.icon-long-arrow-right {
+  @include rtl(transform, scaleX(-1));
+}
+
 .arrow--disabled {
   opacity: 0.23;
 }
@@ -2762,6 +2763,20 @@ ol.tabs li {
     transform: perspective(120px) rotateX(-180.1deg) rotateY(0deg);
   } 100% {
     transform: perspective(120px) rotateX(-180deg) rotateY(-179.9deg);
+  }
+}
+
+.icon-spinner-medium {
+  animation: spinIcon .9s steps(12) infinite;
+}
+
+.icon-spinner-small {
+  animation: spinIcon .9s steps(8) infinite;
+}
+
+@keyframes spinIcon {
+  to {
+    transform: rotate(-1turn);
   }
 }
 
@@ -3419,12 +3434,25 @@ footer {
   fill: $task-state-pending-color;
 }
 
+.state-badge {
+  display: flex;
+  align-items: center;
+  
+  .icon-task-state {
+    margin-right: 2px;
+    margin-top: 0;
+    display: inline;
+    vertical-align: middle;
+  }
+}
+
 .search {
   padding: 11px 5px 4px 10px;
   @include rtl(padding, 11px 10px 4px 0px);
   border-bottom: 1px solid rgba(240,250,255,.05);
   flex-shrink: 0;
   display: flex;
+  align-items: flex-start;
   background-color: inherit;
 }
 
@@ -3432,7 +3460,8 @@ footer {
     flex: 1;
     border-radius: 15px;
     position: relative;
-    transition: 240ms;
+    transition: margin-right 120ms;
+    will-change: margin-right;
   }
 
   .empty-search {
@@ -3478,18 +3507,47 @@ footer {
     -webkit-appearance: none;
   }
 
+  .search .search-loader {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    z-index: 2;
+    opacity: 0;
+    transition: 0s;
+    transition: .1s 0s;
+    pointer-events: none;
+
+    .icon {
+      fill: white;
+      opacity: 0.5;
+    }
+  }
+
+  .search.loading .search-loader {
+    opacity: 1;
+    transition: .2s .5s;
+  }
+
   .search .icon-magnifier {
     position: absolute;
     top: 8px;
     left: 10px;
     @include bidi-style(left, 10px, right, auto);
     z-index: 2;
-    opacity: 0.5;
+    opacity: .5;
     fill: white;
+    transition: 0s;
+    transition: .1s 0s;
+  }
+
+  .search.loading .icon-magnifier {
+    opacity: 0;
+    transition: .2s .5s;
   }
 
   .search.focused .search-holder {
-    @include bidi-style(margin-right, -46px, margin-left, 0);
+    transition: margin-right 240ms;
+    @include bidi-style(margin-right, -59px, margin-left, 0);
   }
 
   .search.focused .logo {
@@ -3530,7 +3588,7 @@ footer {
     }
 
   .global-search-menu {
-    @extend .zIndex-6;
+    @extend .zIndex-7;
     background: #26272e;
     position: absolute;
     left: 0;
@@ -3555,6 +3613,10 @@ footer {
     padding: 9px 15px 8px 0;
     margin-bottom: 7px;
     height: auto !important;
+    
+    .no-match & {
+      display: none;
+    }
 
     .nav-tab-icon {
       width: 18px;
@@ -3580,6 +3642,15 @@ footer {
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  .global-search-detail-no-result {
+    margin: 0 10px;
+
+    .icon {
+      width: 30px;
+      height: 29px;
+    }
   }
 
   .user-menu {
@@ -3715,7 +3786,6 @@ footer {
   height: 40px;
   background-size: cover;
   background-position: center;
-  background-color: rgba(0,0,0,.05);
   border-radius: 100%;
   display: inline-block;
   vertical-align: bottom;
@@ -4026,7 +4096,7 @@ footer {
   padding: 10px 20px;
   overflow: auto;
   position: relative;
-  
+
   &--large-padding {
     padding: 30px 40px;
   }
@@ -4046,7 +4116,7 @@ footer {
 }
 
 .popover {
-  @extend .zIndex-6;
+  @extend .zIndex-7;
   position: absolute;
   font-family: inherit;
   width: 372px;
@@ -4168,6 +4238,7 @@ footer {
     max-width: 400px;
     min-width: 350px;
     flex-direction: column;
+    @extend .zIndex-10;
 
     &.is-visible {
       display: flex;
@@ -4677,18 +4748,18 @@ footer {
       left: 0;
       padding: 0 5px 0 20px;
       width: 100%;
-      
+
       .controls-label {
         display: none;
       }
-      
+
       .form-control {
         width: 70px;
         line-height: inherit;
         position: static;
         padding: 0;
         height: auto;
-        
+
         &.time {
           margin-left: 5px;
           width: 38px;
@@ -4728,11 +4799,6 @@ footer {
 
 .ticketZoom {
   background: #f8f9fa;
-  /*
-    force ticket zoom to show scrollbars
-    because we offset the tabs bar when the os shows scrollbars
-  */
-  min-height: 101%;
 }
 
 .ticketZoom-controls {
@@ -5126,10 +5192,11 @@ footer {
   background: none;
 }
 
-.shortcut .dropdown-menu {
+.shortcut > .dropdown-menu {
   overflow: auto;
   position: absolute;
   max-width: 100%;
+  min-width: 0;
 }
 
 .editControls {
@@ -5410,7 +5477,7 @@ footer {
       color: inherit;
       align-items: center;
       border-bottom: 1px solid hsl(0,0%,96%);
-      
+
       &:last-child {
         border-bottom: none;
       }
@@ -5422,11 +5489,11 @@ footer {
         top: 9px;
         width: 38px;
         text-align: center;
-        
+
         svg {
           vertical-align: bottom;
         }
-        
+
         img {
           width: 30px;
           height: 30px;
@@ -5545,6 +5612,12 @@ footer {
 
 .tabsSidebar-tabsSpacer {
   @include bidi-style(padding-right, 62px !important, padding-left, 0);
+  /*
+    force div to show scrollbars
+    because we offset the sidebar tabs when the os shows scrollbars
+  */
+  overflow-x: hidden;
+  overflow-y: scroll;
 }
 
 .tabsSidebar-sidebarSpacer {
@@ -5842,6 +5915,11 @@ footer {
   border-radius: 3px;
   color: white;
   border: none;
+
+  .icon {
+    @include bidi-style(margin-right, 10px, margin-left, 0);
+    fill: currentColor;
+  }
 
   &.alert--info {
     background: hsl(203,65%,55%);
@@ -6219,7 +6297,7 @@ footer {
 
 /* allow/show autocomplete in modal dialog */
 .ui-autocomplete.ui-widget-content {
-  @extend .zIndex-9;
+  @extend .zIndex-8;
   position: absolute;
 }
 
@@ -6229,11 +6307,11 @@ footer {
   color: white;
   font-family: inherit;
   font-size: inherit;
-  
+
   .ui-menu-item {
     padding: 9px 15px;
     list-style-image: none;
-    
+
     &:not(:first-child) {
       box-shadow: 0 1px rgba(255,255,255,.13) inset;
     }
@@ -6382,8 +6460,7 @@ footer {
   }
 
 .modal {
-  position: fixed;
-  @extend .zIndex-9;
+  @extend .zIndex-10;
 }
 
 .modal-dialog {
@@ -6391,7 +6468,7 @@ footer {
   max-width: 660px;
   margin-top: 35px;
   margin-bottom: 35px;
-  
+
   &.wizard {
     margin: 35px auto;
   }
@@ -6407,10 +6484,6 @@ footer {
 }
 .modal-dialog.wizard {
   max-width: 460px;
-}
-
-.modal-backdrop {
-  position: fixed;
 }
 
 .modal-content {
@@ -6478,6 +6551,7 @@ footer {
 .modal.modal--local {
   display: block;
   padding: 0 40px;
+  @extend .zIndex-9;
 
   .modal-backdrop {
     background: hsla(210,17%,93%,.55);
@@ -6497,13 +6571,11 @@ footer {
 }
 
 .dropdown-backdrop {
-  position: fixed;
-  @extend .zIndex-5; // has to be behind dropdown-menu (dropdown-menu is also zIndex-5 but behind dropdown-backdrop in dom)
+  @extend .zIndex-5; // has to be behind dropdown-menu
 }
 
 .dropdown-menu {
-  @extend .zIndex-5; // has to be behind modal windows and beneath notifications (popover)
-  position: absolute;
+  @extend .zIndex-6; // has to be behind modal windows and beneath notifications (popover)
   margin: 0;
   padding: 0;
   min-width: 100%;
@@ -6591,12 +6663,11 @@ footer {
   .dropdown li:hover,
   .dropdown li.is-active {
     background: hsl(205,90%,60%);
-  }
 
-    .dropdown li:hover + li,
-    .dropdown li.is-active + li {
+    + li {
       box-shadow: none;
     }
+  }
 
   .dropdown-menu > li.danger:hover,
   .dropdown-menu > li.danger.is-active {
@@ -6736,9 +6807,9 @@ footer {
 }
 
 .recipientList-entry {
-  @extend .u-clickable;
   display: flex;
   align-items: center;
+  @extend .u-clickable;
 }
 
   .recipientList-entry .recipientList-iconSpacer {
@@ -6747,6 +6818,7 @@ footer {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
   }
 
   .recipientList-icon {
@@ -6756,13 +6828,12 @@ footer {
     opacity: 0.2;
   }
 
-  .recipientList--new .recipientList-icon {
-    opacity: 1;
-  }
-
-  .recipientList-entry:hover .recipientList-icon,
-  .recipientList-entry.is-active .recipientList-icon {
-    opacity: 1;
+  .recipientList--new,
+  .recipientList-entry:hover,
+  .recipientList-entry.is-active {
+    .recipientList-icon {
+      opacity: 1;
+    }
   }
 
   .recipientList-name {
@@ -6770,6 +6841,16 @@ footer {
     @include bidi-style(margin-left, 10px, margin-right, 0);
     flex: 1;
     @extend .u-textTruncate;
+  }
+
+  .recipientList-status {
+    opacity: 0.5;
+    margin: 0 10px;
+    flex-shrink: 1;
+
+    &:last-child {
+      margin-right: 0;
+    }
   }
 
   .recipientList-arrow {
@@ -7368,6 +7449,10 @@ label + .wizard-buttonList {
   padding: 0;
   @extend %clickable;
   opacity: 0;
+
+  &:focus + label {
+    text-decoration: underline;
+  }
 }
 
 .imagePreview img {
@@ -7396,7 +7481,6 @@ label + .wizard-buttonList {
   border-radius: 100%;
   overflow: hidden;
   margin: 0 10px;
-  background: hsl(210,17%,98%);
 }
 
 .cropper-container {
@@ -7664,7 +7748,7 @@ label + .wizard-buttonList {
 
 .horizontal-filter-value {
   flex-shrink: 0;
-  
+
   // lower the min-width of url input fields (normally 400px) so that it fits in
   input[type=url] {
     min-width: 200px;
@@ -7773,6 +7857,10 @@ output {
     cursor: not-allowed;
     background: hsl(210,17%,93%);
     border-color: hsl(210,10%,85%);
+  }
+
+  &[disabled] + label:after {
+    background: hsl(210,17%,97%);
   }
 
   &:focus + label {
@@ -8442,7 +8530,7 @@ output {
   top: 10px;
   left: 0;
   right: 0;
-  @extend .zIndex-10;
+  @extend .zIndex-9;
   pointer-events: none;
 
   .noty_bar {
@@ -9343,6 +9431,7 @@ output {
   width: 250px;
   height: 40px;
   will-change: transform;
+  @extend .zIndex-10;
 
   &-item {
     position: absolute;

@@ -1,4 +1,3 @@
-
 require 'test_helper'
 
 class ClearbitTest < ActiveSupport::TestCase
@@ -278,8 +277,7 @@ class ClearbitTest < ActiveSupport::TestCase
     ]
     assert_includes(sometimes_changing_but_valid_addresses, customer6.address)
 
-    organization6 = Organization.find_by(name: 'APIHub, Inc.')
-    #assert_nil(organization6, 'unable to find org of user')
+    organization6 = Organization.find_by('name LIKE ?', 'APIHub, Inc%')
     assert(ExternalSync.find_by(source: 'clearbit', object: 'Organization', o_id: organization6.id))
     assert_equal(false, organization6.shared)
     assert_equal('Clearbit provides powerful products and data APIs to help your business grow. Contact enrichment, lead generation, financial compliance, and more...', organization6.note)

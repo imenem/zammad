@@ -32,6 +32,7 @@ module Zammad
       'observer::_ticket::_article::_fillup_from_email',
       'observer::_ticket::_article::_communicate_email',
       'observer::_ticket::_article::_communicate_facebook',
+      'observer::_ticket::_article::_communicate_sms',
       'observer::_ticket::_article::_communicate_twitter',
       'observer::_ticket::_article::_communicate_telegram',
       'observer::_ticket::_reset_new_state',
@@ -46,6 +47,11 @@ module Zammad
       'observer::_organization::_ref_object_touch',
       'observer::_sla::_ticket_rebuild_escalation',
       'observer::_transaction'
+
+    config.active_job.queue_adapter = :delayed_job
+
+    # Use custom logger to log Thread id next to Process pid
+    config.log_formatter = ::Logger::Formatter.new
 
     # REST api path
     config.api_path = '/api/v1'

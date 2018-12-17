@@ -1,8 +1,18 @@
 class App.TicketList extends App.Controller
+  @extend App.PopoverProvidable
+  @registerPopovers 'Organization', 'User'
+
   constructor: ->
     super
-
     @render()
+
+  show: =>
+    if @table
+      @table.show()
+
+  hide: =>
+    if @table
+      @table.hide()
 
   render: =>
 
@@ -37,12 +47,12 @@ class App.TicketList extends App.Controller
 
     callbackIconHeader = (headers) ->
       attribute =
-        name:        'icon'
-        display:     ''
-        translation: false
-        width:       '28px'
-        displayWidth:28
-        unresizable: true
+        name:         'icon'
+        display:      ''
+        translation:  false
+        width:        '28px'
+        displayWidth: 28
+        unresizable:  true
       headers.unshift(0)
       headers[0] = attribute
       headers
@@ -59,7 +69,7 @@ class App.TicketList extends App.Controller
       ticketItem = App.Ticket.fullLocal(ticket_id)
       list.push ticketItem
     @el.html('')
-    new App.ControllerTable(
+    @table = new App.ControllerTable(
       tableId:  @tableId
       el:       @el
       overview: @columns || [ 'number', 'title', 'customer', 'group', 'created_at' ]
@@ -85,8 +95,4 @@ class App.TicketList extends App.Controller
       radio: @radio
     )
 
-    # start user popups
-    @userPopups()
-
-    # start organization popups
-    @organizationPopups()
+    @renderPopovers()

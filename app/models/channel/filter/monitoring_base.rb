@@ -14,6 +14,7 @@ class Channel::Filter::MonitoringBase
   def self.run(_channel, mail)
     integration = integration_name
     return if !Setting.get("#{integration}_integration")
+
     sender = Setting.get("#{integration}_sender")
     auto_close = Setting.get("#{integration}_auto_close")
     auto_close_state_id = Setting.get("#{integration}_auto_close_state_id")
@@ -22,6 +23,7 @@ class Channel::Filter::MonitoringBase
 
     return if mail[:from].blank?
     return if mail[:body].blank?
+
     session_user_id = mail[ 'x-zammad-session-user-id'.to_sym ]
     return if !session_user_id
 
@@ -30,7 +32,8 @@ class Channel::Filter::MonitoringBase
 
     # get mail attibutes like host and state
     result = {}
-    mail[:body].gsub(%r{(Service|Host|State|Address|Date/Time|Additional\sInfo|Info|Action|Description):(.+?)\n}i) do |_match|
+
+    mail[:body].gsub(%r{(Service|Host|State|Address|Date/Time|Additional\sInfo|Info|Action|Description):(.+?)(\n|$)}i) do |_match|
       key = $1
       if key
         key = key.downcase

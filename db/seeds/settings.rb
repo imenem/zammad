@@ -191,6 +191,7 @@ Setting.create_or_update(
         options: {
           'relative': 'relative - e. g. "2 hours ago" or "2 days and 15 minutes ago"',
           'absolute': 'absolute - e. g. "Monday 09:30" or "Tuesday 23. Feb 14:20"',
+          'timestamp': 'timestamp - e. g. "2018-08-30 14:30"',
         },
       },
     ],
@@ -2309,6 +2310,28 @@ Setting.create_if_not_exists(
 )
 
 Setting.create_if_not_exists(
+  title: 'Ticket Subject Forward',
+  name: 'ticket_subject_fwd',
+  area: 'Email::Base',
+  description: 'The text at the beginning of the subject in an email forward, e. g. FWD.',
+  options: {
+    form: [
+      {
+        display: '',
+        null: true,
+        name: 'ticket_subject_fwd',
+        tag: 'input',
+      },
+    ],
+  },
+  state: 'FWD',
+  preferences: {
+    permission: ['admin.channel_email'],
+  },
+  frontend: false
+)
+
+Setting.create_if_not_exists(
   title: 'Sender Format',
   name: 'ticket_define_email_from',
   area: 'Email::Base',
@@ -2533,6 +2556,17 @@ Setting.create_if_not_exists(
 )
 
 Setting.create_if_not_exists(
+  title: 'Bcc address for all outgoing emails',
+  name: 'system_bcc',
+  area: 'Email::Enhanced',
+  description: 'To archive all outgoing emails from Zammad to external, you can store a bcc email address here.',
+  options: {},
+  state: '',
+  preferences: { online_service_disable: true },
+  frontend: false
+)
+
+Setting.create_if_not_exists(
   title: 'API Token Access',
   name: 'api_token_access',
   area: 'API::Base',
@@ -2660,7 +2694,7 @@ Setting.create_if_not_exists(
   area: 'Models::Base',
   description: 'Defines the searchable models.',
   options: {},
-  state: [],
+  state: Models.searchable.map(&:to_s),
   preferences: {
     authentication: true,
   },
@@ -2727,7 +2761,7 @@ Setting.create_if_not_exists(
   name: 'es_attachment_max_size_in_mb',
   area: 'SearchIndex::Elasticsearch',
   description: 'Define max. attachment size for Elasticsearch.',
-  state: 50,
+  state: 10,
   preferences: { online_service_disable: true },
   frontend: false
 )
@@ -2936,6 +2970,41 @@ Setting.create_if_not_exists(
     permission: ['admin'],
   },
   frontend: false
+)
+
+Setting.create_if_not_exists(
+  title:       'Sequencer log level',
+  name:        'sequencer_log_level',
+  area:        'Core',
+  description: 'Defines the log levels for various logging actions of the Sequencer.',
+  options:     {},
+  state:       {
+    sequence: {
+      start_finish: :debug,
+      unit:         :debug,
+      result:       :debug,
+    },
+    state: {
+      optional: :debug,
+      set:      :debug,
+      get:      :debug,
+      attribute_initialization: {
+        start_finish: :debug,
+        attributes:   :debug,
+      },
+      parameter_initialization: {
+        parameters:   :debug,
+        start_finish: :debug,
+        unused:       :debug,
+      },
+      expectations_initialization: :debug,
+      cleanup: {
+        start_finish: :debug,
+        remove:       :debug,
+      }
+    }
+  },
+  frontend: false,
 )
 
 Setting.create_if_not_exists(
@@ -3152,6 +3221,15 @@ Setting.create_if_not_exists(
   description: 'Defines postmaster filter to identify postmaster bounced - disable sending notification on permanent deleivery failed.',
   options: {},
   state: 'Channel::Filter::BounceDeliveryPermanentFailed',
+  frontend: false
+)
+Setting.create_if_not_exists(
+  title: 'Defines postmaster filter.',
+  name: '0955_postmaster_filter_bounce_delivery_temporary_failed',
+  area: 'Postmaster::PreFilter',
+  description: 'Defines postmaster filter to identify postmaster bounced - reopen ticket on permanent temporary failed.',
+  options: {},
+  state: 'Channel::Filter::BounceDeliveryTemporaryFailed',
   frontend: false
 )
 Setting.create_if_not_exists(
@@ -3836,6 +3914,27 @@ Setting.create_if_not_exists(
   frontend: false,
 )
 Setting.create_if_not_exists(
+  title: 'sipgate.io alternative fqdn',
+  name: 'sipgate_alternative_fqdn',
+  area: 'Integration::Sipgate::Expert',
+  description: 'Alternative FQDN for callbacks if you operate Zammad in internal network.',
+  options: {
+    form: [
+      {
+        display: '',
+        null: false,
+        name: 'sipgate_alternative_fqdn',
+        tag: 'input',
+      },
+    ],
+  },
+  state: '',
+  preferences: {
+    permission: ['admin.integration'],
+  },
+  frontend: false
+)
+Setting.create_if_not_exists(
   title: 'cti integration',
   name: 'cti_integration',
   area: 'Integration::Switch',
@@ -3892,6 +3991,69 @@ Setting.create_if_not_exists(
     ],
   },
   state: ENV['CTI_TOKEN'] || SecureRandom.urlsafe_base64(20),
+  preferences: {
+    permission: ['admin.integration'],
+  },
+  frontend: false
+)
+Setting.create_if_not_exists(
+  title: 'Placetel integration',
+  name: 'placetel_integration',
+  area: 'Integration::Switch',
+  description: 'Defines if Placetel (http://www.placetel.de) is enabled or not.',
+  options: {
+    form: [
+      {
+        display: '',
+        null: true,
+        name: 'placetel_integration',
+        tag: 'boolean',
+        options: {
+          true  => 'yes',
+          false => 'no',
+        },
+      },
+    ],
+  },
+  state: false,
+  preferences: {
+    prio: 1,
+    trigger: ['menu:render', 'cti:reload'],
+    authentication: true,
+    permission: ['admin.integration'],
+  },
+  frontend: true
+)
+Setting.create_if_not_exists(
+  title: 'Placetel config',
+  name: 'placetel_config',
+  area: 'Integration::Placetel',
+  description: 'Defines the Placetel config.',
+  options: {},
+  state: { 'outbound' => { 'routing_table' => [], 'default_caller_id' => '' }, 'inbound' => { 'block_caller_ids' => [] } },
+  preferences: {
+    prio: 2,
+    permission: ['admin.integration'],
+    cache: ['placetelGetVoipUsers'],
+  },
+  frontend: false,
+)
+Setting.create_if_not_exists(
+  title: 'PLACETEL Token',
+  name: 'placetel_token',
+  area: 'Integration::Placetel',
+  description: 'Token for Placetel.',
+  options: {
+    form: [
+      {
+        display: '',
+        null: false,
+        name: 'placetel_token',
+        tag: 'input',
+      },
+    ],
+  },
+  state: ENV['PLACETEL_TOKEN'] || SecureRandom.urlsafe_base64(20),
   preferences: {
     permission: ['admin.integration'],
   },

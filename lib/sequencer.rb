@@ -25,6 +25,17 @@ class Sequencer
     new(sequence, *args).process
   end
 
+  # Provides the log level definition for the requested Sequencer component.
+  #
+  # @example
+  #  Sequencer.log_level_for(:state)
+  #  #=> { get: :debug, set: :debug, ... }
+  #
+  # @return [ActiveSupport::HashWithIndifferentAcces] the log level definition
+  def self.log_level_for(component)
+    Setting.get('sequencer_log_level').with_indifferent_access[component]
+  end
+
   # Initializes a new Sequencer instance for the given Sequence with parameters and expecting result.
   #
   # @example
@@ -45,6 +56,7 @@ class Sequencer
     # fall back to sequence default expecting if no explicit
     # expecting was given for this sequence
     return if !@expecting.nil?
+
     @expecting = @sequence.expecting
   end
 
@@ -55,13 +67,13 @@ class Sequencer
   #
   # @return [Hash{Symbol => Object}] the final result state attributes and values
   def process
-    log_start_finish(:info, "Sequence '#{sequence.name}'") do
+    log_start_finish(log_level[:start_finish], "Sequence '#{sequence.name}'") do
 
       sequence.units.each_with_index do |unit, index|
 
         state.process do
 
-          log_start_finish(:info, "Sequence '#{sequence.name}' Unit '#{unit.name}' (index: #{index})") do
+          log_start_finish(log_level[:unit], "Sequence '#{sequence.name}' Unit '#{unit.name}' (index: #{index})") do
             unit.process(state)
           end
         end
@@ -69,7 +81,7 @@ class Sequencer
     end
 
     state.to_h.tap do |result|
-      logger.debug { "Returning Sequence '#{sequence.name}' result: #{result.inspect}" }
+      logger.public_send(log_level[:result]) { "Returning Sequence '#{sequence.name}' result: #{result.inspect}" }
     end
   end
 
@@ -79,5 +91,9 @@ class Sequencer
     @state ||= Sequencer::State.new(sequence,
                                     parameters: @parameters,
                                     expecting:  @expecting)
+  end
+
+  def log_level
+    @log_level ||= self.class.log_level_for(:sequence)
   end
 end

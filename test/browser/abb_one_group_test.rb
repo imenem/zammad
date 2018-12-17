@@ -1,4 +1,3 @@
-
 require 'browser_test_helper'
 
 class AgentTicketActionLevel0Test < TestCase
@@ -226,6 +225,9 @@ class AgentTicketActionLevel0Test < TestCase
         ],
       },
     )
+
+    # wait to push new group dependencies to browser (to show group selection)
+    sleep 12
 
     # create new ticket
     ticket1 = ticket_create(

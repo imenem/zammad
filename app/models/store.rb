@@ -5,10 +5,8 @@ require_dependency 'store/file'
 
 class Store < ApplicationModel
 
-  # rubocop:disable Rails/InverseOf
   belongs_to :store_object, class_name: 'Store::Object'
   belongs_to :store_file,   class_name: 'Store::File'
-  # rubocop:enable Rails/InverseOf
 
   validates :filename, presence: true
 
@@ -161,6 +159,7 @@ returns
     if !file
       raise "No such file #{store_file_id}!"
     end
+
     file.content
   end
 
@@ -183,6 +182,7 @@ returns
     if !file
       raise "No such file #{store_file_id}!"
     end
+
     if !path
       path = Rails.root.join('tmp', filename)
     end
@@ -192,11 +192,16 @@ returns
     path
   end
 
+  def attributes_for_display
+    slice :id, :filename, :size, :preferences
+  end
+
   def provider
     file = Store::File.find_by(id: store_file_id)
     if !file
       raise "No such file #{store_file_id}!"
     end
+
     file.provider
   end
 end

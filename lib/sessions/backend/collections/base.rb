@@ -1,6 +1,9 @@
 class Sessions::Backend::Collections::Base < Sessions::Backend::Base
   class << self; attr_accessor :model, :permissions end
 
+  attr_writer :user
+  attr_writer :time_now
+
   def initialize(user, asset_lookup, client, client_id, ttl)
     @user         = user
     @client       = client
@@ -8,6 +11,7 @@ class Sessions::Backend::Collections::Base < Sessions::Backend::Base
     @ttl          = ttl
     @asset_lookup = asset_lookup
     @last_change  = nil
+    @time_now     = Time.zone.now.to_i
   end
 
   def load
@@ -37,6 +41,7 @@ class Sessions::Backend::Collections::Base < Sessions::Backend::Base
     # check if update has been done
     last_change = self.class.model.constantize.latest_change
     return if last_change.to_s == @last_change
+
     @last_change = last_change.to_s
 
     # load current data
@@ -51,9 +56,11 @@ class Sessions::Backend::Collections::Base < Sessions::Backend::Base
     end
 
     # collect assets
+    @time_now = Time.zone.now.to_i
     assets = {}
     items.each do |item|
       next if !asset_needed?(item)
+
       assets = asset_push(item, assets)
     end
     if !@client

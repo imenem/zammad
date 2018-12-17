@@ -44,6 +44,7 @@ class TicketArticlesController < ApplicationController
 
         # ignore internal article if customer is requesting
         next if article.internal == true && current_user.permissions?('ticket.customer')
+
         result = article.attributes_with_association_names
         articles.push result
       end
@@ -74,6 +75,7 @@ class TicketArticlesController < ApplicationController
 
       # ignore internal article if customer is requesting
       next if article.internal == true && current_user.permissions?('ticket.customer')
+
       articles.push article.attributes_with_association_names
     end
     render json: articles, status: :ok
@@ -111,6 +113,9 @@ class TicketArticlesController < ApplicationController
 
     clean_params = Ticket::Article.association_name_to_id_convert(params)
     clean_params = Ticket::Article.param_cleanup(clean_params, true)
+
+    # only apply preferences changes (keep not updated keys/values)
+    clean_params = article.param_preferences_merge(clean_params)
 
     article.update!(clean_params)
 
@@ -312,8 +317,15 @@ class TicketArticlesController < ApplicationController
     if Setting.get('import_mode') != true
       raise 'Only can import tickets if system is in import mode.'
     end
+
+    string = params[:data]
+    if string.blank? && params[:file].present?
+      string = params[:file].read.force_encoding('utf-8')
+    end
+    raise Exceptions::UnprocessableEntity, 'No source data submitted!' if string.blank?
+
     result = Ticket::Article.csv_import(
-      string: params[:file].read.force_encoding('utf-8'),
+      string: string,
       parse_params: {
         col_sep: ';',
       },
@@ -328,6 +340,7 @@ class TicketArticlesController < ApplicationController
     disposition = params.fetch(:disposition, 'inline')
     valid_disposition = %w[inline attachment]
     return disposition if valid_disposition.include?(disposition)
+
     raise Exceptions::NotAuthorized, "Invalid disposition #{disposition} requested. Only #{valid_disposition.join(', ')} are valid."
   end
 end

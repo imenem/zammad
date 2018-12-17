@@ -111,6 +111,8 @@ class CreateTicket < ActiveRecord::Migration[4.2]
     add_index :tickets, [:pending_time]
     add_index :tickets, [:type]
     add_index :tickets, [:time_unit]
+    add_index :tickets, %i[group_id state_id]
+    add_index :tickets, %i[group_id state_id owner_id]
     add_foreign_key :tickets, :groups
     add_foreign_key :tickets, :users, column: :owner_id
     add_foreign_key :tickets, :users, column: :customer_id
@@ -237,6 +239,7 @@ class CreateTicket < ActiveRecord::Migration[4.2]
       t.column :condition,            :text, limit: 500.kilobytes + 1, null: false
       t.column :order,                :string,  limit: 2500,   null: false
       t.column :group_by,             :string,  limit: 250,    null: true
+      t.column :group_direction,      :string,  limit: 250,    null: true
       t.column :organization_shared,  :boolean,                null: false, default: false
       t.column :out_of_office,        :boolean,                null: false, default: false
       t.column :view,                 :string,  limit: 1000,   null: false

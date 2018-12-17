@@ -32,21 +32,21 @@ Rails.application.configure do
   config.assets.debug = false
 
   # Automatically inject JavaScript needed for LiveReload
-  config.middleware.insert_after(
-    ActionDispatch::Static,
-    Rack::LiveReload,
-    no_swf: true,
-    min_delay: 500,    # default 1000
-    max_delay: 10_000, # default 60_000
-    live_reload_port: 35_738
-  )
+  if ENV['RAKE_LIVE_RELOAD'].present?
+    require 'rack-livereload'
+    config.middleware.insert_after(
+      ActionDispatch::Static,
+      Rack::LiveReload,
+      no_swf: true,
+      min_delay: 500,    # default 1000
+      max_delay: 10_000, # default 60_000
+      live_reload_port: 35_738
+    )
+  end
 
   # Asset digests allow you to set far-future HTTP expiration dates on all assets,
   # yet still be able to expire them through the digest params.
   config.assets.digest = false
-
-  # format log
-  config.log_formatter = Logger::Formatter.new
 
   # Adds additional error checking when serving assets at runtime.
   # Checks for improperly declared sprockets dependencies.

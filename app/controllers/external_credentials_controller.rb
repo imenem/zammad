@@ -1,7 +1,7 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class ExternalCredentialsController < ApplicationController
-  prepend_before_action { authentication_check(permission: ['admin.channel_twitter', 'admin.channel_facebook']) }
+  prepend_before_action :permission_check
 
   def index
     model_index_render(ExternalCredential, params)
@@ -24,8 +24,7 @@ class ExternalCredentialsController < ApplicationController
   end
 
   def app_verify
-    attributes = ExternalCredential.app_verify(params)
-    render json: { attributes: attributes }, status: :ok
+    render json: { attributes: ExternalCredential.app_verify(params.permit!.to_h) }, status: :ok
   rescue => e
     render json: { error: e.message }, status: :ok
   end
@@ -39,7 +38,7 @@ class ExternalCredentialsController < ApplicationController
 
   def callback
     provider = params[:provider].downcase
-    channel = ExternalCredential.link_account(provider, session[:request_token], params)
+    channel = ExternalCredential.link_account(provider, session[:request_token], params.permit!.to_h)
     session[:request_token] = nil
     redirect_to app_url(provider, channel.id)
   end
@@ -52,6 +51,30 @@ class ExternalCredentialsController < ApplicationController
 
   def app_url(provider, channel_id)
     ExternalCredential.app_url(provider, channel_id)
+  end
+
+  def permission_check
+    if params[:id].present? && ExternalCredential.exists?(params[:id])
+      external_credential = ExternalCredential.find(params[:id])
+      raise 'No such ExternalCredential!' if !external_credential
+
+      authentication_check(permission: ["admin.channel_#{external_credential.name}"])
+      return
+    end
+
+    if params[:name].present? || params[:provider].present?
+      if params[:name].present?
+        name = params[:name].downcase
+      elsif params[:provider].present?
+        name = params[:provider].downcase
+      else
+        raise 'Missing name/provider!'
+      end
+      authentication_check(permission: ["admin.channel_#{name}"])
+      return
+    end
+
+    authentication_check(permission: ['admin'])
   end
 
 end

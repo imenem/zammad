@@ -1,4 +1,3 @@
-
 require 'test_helper'
 
 class ModelTest < ActiveSupport::TestCase
@@ -154,7 +153,7 @@ class ModelTest < ActiveSupport::TestCase
     assert_equal(references1['User']['created_by_id'], 1)
     assert_equal(references1['Organization']['updated_by_id'], 1)
     assert_equal(references1['UserGroup']['user_id'], 1)
-    assert(!references1['Group'])
+    assert_not(references1['Group'])
 
     references_total1 = Models.references_total('User', agent1.id)
     assert_equal(references_total1, 8)
@@ -162,9 +161,9 @@ class ModelTest < ActiveSupport::TestCase
     # verify agent2
     references2 = Models.references('User', agent2.id)
 
-    assert(!references2['User'])
-    assert(!references2['Organization'])
-    assert(!references2['Group'])
+    assert_not(references2['User'])
+    assert_not(references2['Organization'])
+    assert_not(references2['Group'])
     assert_equal(references2['UserGroup']['user_id'], 1)
 
     references_total2 = Models.references_total('User', agent2.id)
@@ -175,10 +174,10 @@ class ModelTest < ActiveSupport::TestCase
     # verify agent1
     references1 = Models.references('User', agent1.id)
 
-    assert(!references1['User'])
-    assert(!references1['Organization'])
-    assert(!references1['Group'])
-    assert(!references1['UserGroup'])
+    assert_not(references1['User'])
+    assert_not(references1['Organization'])
+    assert_not(references1['Group'])
+    assert_not(references1['UserGroup'])
     assert(references1.blank?)
 
     references_total1 = Models.references_total('User', agent1.id)
@@ -191,7 +190,7 @@ class ModelTest < ActiveSupport::TestCase
     assert_equal(references2['User']['created_by_id'], 1)
     assert_equal(references2['Organization']['updated_by_id'], 1)
     assert_equal(references2['UserGroup']['user_id'], 2)
-    assert(!references2['Group'])
+    assert_not(references2['Group'])
 
     references_total2 = Models.references_total('User', agent2.id)
     assert_equal(references_total2, 9)
@@ -202,8 +201,8 @@ class ModelTest < ActiveSupport::TestCase
     references1 = Models.references('Organization', organization1.id)
 
     assert_equal(references1['User']['organization_id'], 1)
-    assert(!references1['Organization'])
-    assert(!references1['Group'])
+    assert_not(references1['Organization'])
+    assert_not(references1['Group'])
 
     references_total1 = Models.references_total('Organization', organization1.id)
     assert_equal(references_total1, 1)
@@ -230,8 +229,8 @@ class ModelTest < ActiveSupport::TestCase
     references2 = Models.references('Organization', organization2.id)
 
     assert_equal(references2['User']['organization_id'], 1)
-    assert(!references2['Organization'])
-    assert(!references2['Group'])
+    assert_not(references2['Organization'])
+    assert_not(references2['Group'])
 
     references_total2 = Models.references_total('Organization', organization2.id)
     assert_equal(references_total2, 1)
@@ -335,6 +334,53 @@ class ModelTest < ActiveSupport::TestCase
     assert(result[:updated_at])
     assert_not(result.key?(:action))
     assert_not(result.key?(:controller))
+  end
+
+  test 'param_preferences_merge test' do
+    params = {
+      id: 123,
+      firstname: '123',
+      created_by_id: 1,
+      created_at: Time.zone.now,
+      updated_by_id: 1,
+      updated_at: Time.zone.now,
+      preferences: {},
+    }
+    user = User.new(params)
+    assert(user.preferences.blank?)
+
+    user.preferences = { A: 1, B: 2 }
+    assert(user.preferences.present?)
+
+    params = {
+      firstname: '123 ABC',
+      preferences: { 'B' => 3, 'C': 4 },
+    }
+    clean_params = User.param_cleanup(params)
+    clean_user_params = user.param_preferences_merge(clean_params)
+    assert_equal(clean_user_params[:firstname], '123 ABC')
+    assert(clean_user_params[:preferences].present?)
+    assert_equal(clean_user_params[:preferences]['A'], 1)
+    assert_equal(clean_user_params[:preferences]['B'], 3)
+    assert_equal(clean_user_params[:preferences]['C'], 4)
+    assert_equal(clean_user_params[:preferences][:A], 1)
+    assert_equal(clean_user_params[:preferences][:B], 3)
+    assert_equal(clean_user_params[:preferences][:C], 4)
+
+    params = {
+      firstname: '123 ABCD',
+      preferences: {},
+    }
+    clean_params = User.param_cleanup(params)
+    clean_user_params = user.param_preferences_merge(clean_params)
+    assert_equal(clean_user_params[:firstname], '123 ABCD')
+    assert(clean_user_params[:preferences].present?)
+    assert_equal(clean_user_params[:preferences]['A'], 1)
+    assert_equal(clean_user_params[:preferences]['B'], 2)
+    assert_nil(clean_user_params[:preferences]['C'])
+    assert_equal(clean_user_params[:preferences][:A], 1)
+    assert_equal(clean_user_params[:preferences][:B], 2)
+    assert_nil(clean_user_params[:preferences][:C])
   end
 
 end

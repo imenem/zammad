@@ -1,4 +1,3 @@
-
 require 'browser_test_helper'
 
 class AgentTicketLinkTest < TestCase
@@ -46,7 +45,8 @@ class AgentTicketLinkTest < TestCase
     click(
       css: '.content.active .links .js-add',
     )
-    sleep 2
+
+    modal_ready()
 
     set(
       css: '.content.active .modal-body [name="ticket_number"]',

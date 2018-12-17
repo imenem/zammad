@@ -4,6 +4,14 @@ module Cti
 
     DEFAULT_COUNTRY_ID = '49'.freeze
 
+    # adopt/orphan matching Cti::Log records
+    # (see https://github.com/zammad/zammad/issues/2057)
+    after_commit :update_cti_logs, on: :destroy
+    after_commit :update_cti_logs_with_fg_optimization, on: :create
+
+    skip_callback :commit, :after, :update_cti_logs, if: -> { BulkImportInfo.enabled? }
+    skip_callback :commit, :after, :update_cti_logs_with_fg_optimization, if: -> { BulkImportInfo.enabled? }
+
 =begin
 
   Cti::CallerId.maybe_add(
@@ -27,6 +35,7 @@ module Cti
       )
 
       return record if !record.new_record?
+
       record.comment = data[:comment]
       record.save!
     end
@@ -42,25 +51,17 @@ returns
 =end
 
     def self.lookup(caller_id)
+      lookup_ids =
+        ['known', 'maybe', nil].lazy.map do |level|
+          Cti::CallerId.select('MAX(id) as caller_id')
+                       .where({ caller_id: caller_id, level: level }.compact)
+                       .group(:user_id)
+                       .order('caller_id DESC')
+                       .limit(20)
+                       .map(&:caller_id)
+        end.find(&:present?)
 
-      result = []
-      ['known', 'maybe', nil].each do |level|
-
-        search_params = {
-          caller_id: caller_id,
-        }
-
-        if level
-          search_params[:level] = level
-        end
-
-        caller_ids = Cti::CallerId.select('MAX(id) as caller_id').where(search_params).group(:user_id).order('caller_id DESC').limit(20).map(&:caller_id)
-        Cti::CallerId.where(id: caller_ids).order(id: :desc).each do |record|
-          result.push record
-        end
-        break if result.present?
-      end
-      result
+      Cti::CallerId.where(id: lookup_ids).order(id: :desc).to_a
     end
 
 =begin
@@ -75,10 +76,12 @@ returns
       model = nil
       map.each do |item|
         next if item[:model] != record.class
+
         level = item[:level]
         model = item[:model]
       end
       return if !level || !model
+
       build_item(record, model, level)
     end
 
@@ -95,12 +98,17 @@ returns
         article = record.articles.first
         return if !article
         return if article.sender.name != 'Customer'
+
         record = article
       end
 
       # set user id
       user_id = record[:created_by_id]
       if model == User
+        if record.destroyed?
+          Cti::CallerId.where(user_id: user_id).destroy_all
+          return
+        end
         user_id = record.id
       end
       return if !user_id
@@ -111,14 +119,38 @@ returns
       attributes.each_value do |value|
         next if value.class != String
         next if value.blank?
+
         local_caller_ids = Cti::CallerId.extract_numbers(value)
         next if local_caller_ids.blank?
+
         caller_ids = caller_ids.concat(local_caller_ids)
       end
 
-      # store caller ids
-      Cti::CallerId.where(object: model.to_s, o_id: record.id).destroy_all
-      caller_ids.each do |caller_id|
+      # search for caller ids to keep
+      caller_ids_to_add = []
+      existing_record_ids = Cti::CallerId.where(object: model.to_s, o_id: record.id).pluck(:id)
+      caller_ids.uniq.each do |caller_id|
+        existing_record_id = Cti::CallerId.where(
+          object: model.to_s,
+          o_id: record.id,
+          caller_id: caller_id,
+          level: level,
+          user_id: user_id,
+        ).pluck(:id)
+        if existing_record_id[0]
+          existing_record_ids.delete(existing_record_id[0])
+          next
+        end
+        caller_ids_to_add.push caller_id
+      end
+
+      # delete not longer existing caller ids
+      existing_record_ids.each do |record_id|
+        Cti::CallerId.destroy(record_id)
+      end
+
+      # create new caller ids
+      caller_ids_to_add.each do |caller_id|
         Cti::CallerId.maybe_add(
           caller_id: caller_id,
           level: level,
@@ -194,6 +226,7 @@ returns
     def self.extract_numbers(text)
       # see specs for example
       return [] if !text.is_a?(String)
+
       text.scan(/([\d|\s|\-|\(|\)]{6,26})/).map do |match|
         normalize_number(match[0])
       end
@@ -212,6 +245,34 @@ returns
         number
       end
     end
+
+=begin
+
+  from_comment, preferences = Cti::CallerId.get_comment_preferences('00491710000000', 'from')
+
+  returns
+
+  [
+    "Bob Smith",
+    {
+      "from"=>[
+        {
+          "id"=>1961634,
+          "caller_id"=>"491710000000",
+          "comment"=>nil,
+          "level"=>"known",
+          "object"=>"User",
+          "o_id"=>3,
+          "user_id"=>3,
+          "preferences"=>nil,
+          "created_at"=>Mon, 24 Sep 2018 15:19:48 UTC +00:00,
+          "updated_at"=>Mon, 24 Sep 2018 15:19:48 UTC +00:00,
+        }
+      ]
+    }
+  ]
+
+=end
 
     def self.get_comment_preferences(caller_id, direction)
       from_comment_known = ''
@@ -250,8 +311,22 @@ returns
       end
       return [from_comment_known, preferences_known] if from_comment_known.present?
       return ["maybe #{from_comment_maybe}", preferences_maybe] if from_comment_maybe.present?
+
       nil
     end
 
+    def update_cti_logs
+      return if object != 'User'
+
+      UpdateCtiLogsByCallerJob.perform_later(caller_id)
+    end
+
+    def update_cti_logs_with_fg_optimization
+      return if object != 'User'
+      return if level != 'known'
+
+      UpdateCtiLogsByCallerJob.perform_now(caller_id, limit: 20)
+      UpdateCtiLogsByCallerJob.perform_later(caller_id, limit: 40, offset: 20)
+    end
   end
 end

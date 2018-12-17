@@ -13,6 +13,7 @@ info about used search index machine
   def self.info
     url = Setting.get('es_url').to_s
     return if url.blank?
+
     Rails.logger.info "# curl -X GET \"#{url}\""
     response = UserAgent.get(
       url,
@@ -29,8 +30,10 @@ info about used search index machine
     if response.success?
       installed_version = response.data.dig('version', 'number')
       raise "Unable to get elasticsearch version from response: #{response.inspect}" if installed_version.blank?
+
       version_supported = Gem::Version.new(installed_version) < Gem::Version.new('5.7')
       raise "Version #{installed_version} of configured elasticsearch is not supported" if !version_supported
+
       return response.data
     end
 
@@ -165,13 +168,19 @@ create/update/delete index
     Rails.logger.info "# curl -X PUT \"#{url}\" \\"
     Rails.logger.debug { "-d '#{data[:data].to_json}'" }
 
+    # note that we use a high read timeout here because
+    # otherwise the request will be retried (underhand)
+    # which leads to an "index_already_exists_exception"
+    # HTTP 400 status error
+    # see: https://github.com/ankane/the-ultimate-guide-to-ruby-timeouts/issues/8
+    # Improving the Elasticsearch config is probably the proper solution
     response = UserAgent.put(
       url,
       data[:data],
       {
         json: true,
         open_timeout: 8,
-        read_timeout: 12,
+        read_timeout: 30,
         user: Setting.get('es_user'),
         password: Setting.get('es_password'),
       }
@@ -265,11 +274,19 @@ remove whole data from index
 
 =begin
 
-return search result
+@param query   [String]  search query
+@param index   [String, Array<String>, nil] indexes to search in (see search_by_index)
+@param options [Hash] search options (see build_query)
 
-  result = SearchIndexBackend.search('search query', limit, ['User', 'Organization'])
+@return search result
 
-  result = SearchIndexBackend.search('search query', limit, 'User')
+@example Sample queries
+
+  result = SearchIndexBackend.search('search query', ['User', 'Organization'], limit: limit)
+
+  result = SearchIndexBackend.search('search query', 'User', limit: limit)
+
+  result = SearchIndexBackend.search('search query', 'User', limit: limit, sort_by: ['updated_at'], order_by: ['desc'])
 
   result = [
     {
@@ -288,24 +305,33 @@ return search result
 
 =end
 
-  def self.search(query, limit = 10, index = nil, query_extention = {}, from = 0)
-    return [] if query.blank?
-    if index.class == Array
-      ids = []
-      index.each do |local_index|
-        local_ids = search_by_index(query, limit, local_index, query_extention, from)
-        ids = ids.concat(local_ids)
-      end
-      return ids
+  def self.search(query, index = nil, options = {})
+    if !index.is_a? Array
+      return search_by_index(query, index, options)
     end
-    search_by_index(query, limit, index, query_extention, from)
+
+    index
+      .map { |local_index| search_by_index(query, local_index, options) }
+      .compact
+      .flatten(1)
   end
 
-  def self.search_by_index(query, limit = 10, index = nil, query_extention = {}, from)
+=begin
+
+@param query   [String]  search query
+@param index   [String, Array<String>, nil] index name or list of index names. If index is nil or not present will, search will be performed globally
+@param options [Hash] search options (see build_query)
+
+@return search result
+
+=end
+
+  def self.search_by_index(query, index = nil, options = {})
     return [] if query.blank?
 
     url = build_url
     return if url.blank?
+
     url += if index
              if index.class == Array
                "/#{index.join(',')}/_search"
@@ -315,46 +341,24 @@ return search result
            else
              '/_search'
            end
-    data = {}
-    data['from'] = from
-    data['size'] = limit
-    data['sort'] =
-      [
-        {
-          updated_at: {
-            order: 'desc'
-          }
-        },
-        '_score'
-      ]
-
-    data['query'] = query_extention || {}
-    data['query']['bool'] ||= {}
-    data['query']['bool']['must'] ||= []
-
-    # add * on simple query like "somephrase23" or "attribute: somephrase23"
-    if query.present?
-      query.strip!
-      if query.match?(/^([[:alpha:],0-9]+|[[:alpha:],0-9]+\:\s+[[:alpha:],0-9]+)$/)
-        query += '*'
-      end
-    end
 
     # real search condition
     condition = {
       'query_string' => {
-        'query' => query,
+        'query' => append_wildcard_to_simple_query(query),
         'default_operator' => 'AND',
+        'analyze_wildcard' => true,
       }
     }
-    data['query']['bool']['must'].push condition
+
+    query_data = build_query(condition, options)
 
     Rails.logger.info "# curl -X POST \"#{url}\" \\"
-    Rails.logger.debug { " -d'#{data.to_json}'" }
+    Rails.logger.debug { " -d'#{query_data.to_json}'" }
 
     response = UserAgent.get(
       url,
-      data,
+      query_data,
       {
         json: true,
         open_timeout: 5,
@@ -369,26 +373,62 @@ return search result
       Rails.logger.error humanized_error(
         verb:     'GET',
         url:      url,
-        payload:  data,
+        payload:  query_data,
         response: response,
       )
       return []
     end
-    data = response.data
+    data = response.data&.dig('hits', 'hits')
 
-    ids = []
-    return ids if !data
-    return ids if !data['hits']
-    return ids if !data['hits']['hits']
-    data['hits']['hits'].each do |item|
+    return [] if !data
+
+    data.map do |item|
       Rails.logger.info "... #{item['_type']} #{item['_id']}"
-      data = {
+
+      {
         id: item['_id'],
         type: item['_type'],
       }
-      ids.push data
     end
-    ids
+  end
+
+  def self.search_by_index_sort(sort_by = nil, order_by = nil)
+    result = []
+
+    sort_by&.each_with_index do |value, index|
+      next if value.blank?
+      next if order_by&.at(index).blank?
+
+      if value !~ /\./ && value !~ /_(time|date|till|id|ids|at)$/
+        value += '.raw'
+      end
+      result.push(
+        value => {
+          order: order_by[index],
+        },
+      )
+    end
+
+    if result.blank?
+      result.push(
+        updated_at: {
+          order: 'desc',
+        },
+      )
+    end
+
+    # add sorting by active if active is not part of the query
+    if result.flat_map(&:keys).exclude?(:active)
+      result.unshift(
+        active: {
+          order: 'desc',
+        },
+      )
+    end
+
+    result.push('_score')
+
+    result
   end
 
 =begin
@@ -435,6 +475,7 @@ get count of tickets and tickets which match on selector
 
     url = build_url
     return if url.blank?
+
     url += if index
              if index.class == Array
                "/#{index.join(',')}/_search"
@@ -489,25 +530,91 @@ get count of tickets and tickets which match on selector
   def self.selector2query(selector, _current_user, aggs_interval, limit)
     query_must = []
     query_must_not = []
+    relative_map = {
+      day: 'd',
+      year: 'y',
+      month: 'M',
+      hour: 'h',
+      minute: 'm',
+    }
     if selector.present?
       selector.each do |key, data|
         key_tmp = key.sub(/^.+?\./, '')
         t = {}
-        if data['value'].class == Array
-          t[:terms] = {}
-          t[:terms][key_tmp] = data['value']
-        else
-          t[:term] = {}
-          t[:term][key_tmp] = data['value']
-        end
-        if data['operator'] == 'is'
+
+        # is/is not/contains/contains not
+        if data['operator'] == 'is' || data['operator'] == 'is not' || data['operator'] == 'contains' || data['operator'] == 'contains not'
+          if data['value'].class == Array
+            t[:terms] = {}
+            t[:terms][key_tmp] = data['value']
+          else
+            t[:term] = {}
+            t[:term][key_tmp] = data['value']
+          end
+          if data['operator'] == 'is' || data['operator'] == 'contains'
+            query_must.push t
+          elsif data['operator'] == 'is not' || data['operator'] == 'contains not'
+            query_must_not.push t
+          end
+        elsif data['operator'] == 'contains all' || data['operator'] == 'contains one' || data['operator'] == 'contains all not' || data['operator'] == 'contains one not'
+          values = data['value'].split(',').map(&:strip)
+          t[:query_string] = {}
+          if data['operator'] == 'contains all'
+            t[:query_string][:query] = "#{key_tmp}:\"#{values.join('" AND "')}\""
+            query_must.push t
+          elsif data['operator'] == 'contains one not'
+            t[:query_string][:query] = "#{key_tmp}:\"#{values.join('" OR "')}\""
+            query_must_not.push t
+          elsif data['operator'] == 'contains one'
+            t[:query_string][:query] = "#{key_tmp}:\"#{values.join('" OR "')}\""
+            query_must.push t
+          elsif data['operator'] == 'contains all not'
+            t[:query_string][:query] = "#{key_tmp}:\"#{values.join('" AND "')}\""
+            query_must_not.push t
+          end
+
+        # within last/within next (relative)
+        elsif data['operator'] == 'within last (relative)' || data['operator'] == 'within next (relative)'
+          range = relative_map[data['range'].to_sym]
+          if range.blank?
+            raise "Invalid relative_map for range '#{data['range']}'."
+          end
+
+          t[:range] = {}
+          t[:range][key_tmp] = {}
+          if data['operator'] == 'within last (relative)'
+            t[:range][key_tmp][:gte] = "now-#{data['value']}#{range}"
+          else
+            t[:range][key_tmp][:lt] = "now+#{data['value']}#{range}"
+          end
           query_must.push t
-        elsif data['operator'] == 'is not'
-          query_must_not.push t
-        elsif data['operator'] == 'contains'
+
+        # before/after (relative)
+        elsif data['operator'] == 'before (relative)' || data['operator'] == 'after (relative)'
+          range = relative_map[data['range'].to_sym]
+          if range.blank?
+            raise "Invalid relative_map for range '#{data['range']}'."
+          end
+
+          t[:range] = {}
+          t[:range][key_tmp] = {}
+          if data['operator'] == 'before (relative)'
+            t[:range][key_tmp][:lt] = "now-#{data['value']}#{range}"
+          else
+            t[:range][key_tmp][:gt] = "now+#{data['value']}#{range}"
+          end
           query_must.push t
-        elsif data['operator'] == 'contains not'
-          query_must_not.push t
+
+        # before/after (absolute)
+        elsif data['operator'] == 'before (absolute)' || data['operator'] == 'after (absolute)'
+          t[:range] = {}
+          t[:range][key_tmp] = {}
+          if data['operator'] == 'before (absolute)'
+            t[:range][key_tmp][:lt] = (data['value']).to_s
+          else
+            t[:range][key_tmp][:gt] = (data['value']).to_s
+          end
+          query_must.push t
         else
           raise "unknown operator '#{data['operator']}' for #{key}"
         end
@@ -573,11 +680,13 @@ return true if backend is configured
 
   def self.enabled?
     return false if Setting.get('es_url').blank?
+
     true
   end
 
   def self.build_url(type = nil, o_id = nil)
     return if !SearchIndexBackend.enabled?
+
     index = "#{Setting.get('es_index')}_#{Rails.env}"
     url   = Setting.get('es_url')
     url = if type
@@ -615,5 +724,52 @@ return true if backend is configured
     result = "#{prefix} #{message}#{suffix}"
     Rails.logger.error result.first(40_000)
     result
+  end
+
+  # add * on simple query like "somephrase23"
+  def self.append_wildcard_to_simple_query(query)
+    query.strip!
+    query += '*' if !query.match?(/:/)
+    query
+  end
+
+=begin
+
+@param condition [Hash] search condition
+@param options [Hash] search options
+@option options [Integer] :from
+@option options [Integer] :limit
+@option options [Hash] :query_extension applied to ElasticSearch query
+@option options [Array<String>] :order_by ordering directions, desc or asc
+@option options [Array<String>] :sort_by fields to sort by
+
+=end
+
+  DEFAULT_QUERY_OPTIONS = {
+    from:  0,
+    limit: 10
+  }.freeze
+
+  def self.build_query(condition, options = {})
+    options = DEFAULT_QUERY_OPTIONS.merge(options.deep_symbolize_keys)
+
+    data = {
+      from:  options[:from],
+      size:  options[:limit],
+      sort:  search_by_index_sort(options[:sort_by], options[:order_by]),
+      query: {
+        bool: {
+          must: []
+        }
+      }
+    }
+
+    if (extension = options.dig(:query_extension))
+      data[:query].deep_merge! extension.deep_dup
+    end
+
+    data[:query][:bool][:must].push condition
+
+    data
   end
 end

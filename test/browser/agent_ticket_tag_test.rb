@@ -1,4 +1,3 @@
-
 require 'browser_test_helper'
 
 class AgentTicketTagTest < TestCase
@@ -254,7 +253,11 @@ class AgentTicketTagTest < TestCase
       browser: browser2,
       js: "$('.content.active .js-name:contains(\"tag3\")').click()",
     )
-    sleep 2
+
+    modal_ready(
+      browser: browser2,
+    )
+
     set(
       browser: browser2,
       css: '.modal [name="name"]',
@@ -308,7 +311,11 @@ class AgentTicketTagTest < TestCase
       browser: browser2,
       js: "$('.content.active .js-name:contains(\"tag5\")').closest('tr').find('.js-delete').click()",
     )
-    sleep 2
+
+    modal_ready(
+      browser: browser2,
+    )
+
     click(
       browser: browser2,
       css: '.modal .js-submit',
@@ -346,7 +353,7 @@ class AgentTicketTagTest < TestCase
   end
 
   def test_b_tags
-    tag_prefix = "tag#{rand(999_999_999)}"
+    tag_prefix = "tag#{rand(1000)}"
 
     @browser = browser_instance
     login(

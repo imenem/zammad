@@ -1,5 +1,7 @@
 class Sessions::Backend::ActivityStream
 
+  attr_writer :user
+
   def initialize(user, asset_lookup, client = nil, client_id = nil, ttl = 25)
     @user         = user
     @client       = client
@@ -29,8 +31,13 @@ class Sessions::Backend::ActivityStream
     assets = {}
     item_ids = []
     activity_stream.each do |item|
+      begin
+        assets = item.assets(assets)
+      rescue ActiveRecord::RecordNotFound
+        next
+      end
+
       item_ids.push item.id
-      assets = item.assets(assets)
     end
 
     {

@@ -408,6 +408,9 @@ class CreateBase < ActiveRecord::Migration[4.2]
     add_index :histories, [:id_from]
     add_index :histories, [:value_from], length: 255
     add_index :histories, [:value_to], length: 255
+    add_index :histories, [:related_o_id]
+    add_index :histories, [:related_history_object_id]
+    add_index :histories, %i[o_id history_object_id related_o_id]
     add_foreign_key :histories, :history_types
     add_foreign_key :histories, :history_objects
     add_foreign_key :histories, :history_attributes
@@ -642,10 +645,14 @@ class CreateBase < ActiveRecord::Migration[4.2]
       t.string  :from_comment,           limit: 250,  null: true
       t.string  :to,                     limit: 100,  null: false
       t.string  :to_comment,             limit: 250,  null: true
+      t.string  :queue,                  limit: 250,  null: true
       t.string  :call_id,                limit: 250,  null: false
       t.string  :comment,                limit: 500,  null: true
-      t.timestamp :start,                limit: 3,    null: true
-      t.timestamp :end,                  limit: 3,    null: true
+      t.timestamp :initialized_at,       limit: 3,    null: true
+      t.timestamp :start_at,             limit: 3,    null: true
+      t.timestamp :end_at,               limit: 3,    null: true
+      t.integer   :duration_waiting_time,             null: true
+      t.integer   :duration_talking_time,             null: true
       t.boolean   :done,                              null: false, default: true
       t.text :preferences,            limit: 500.kilobytes + 1, null: true
       t.timestamps limit: 3, null: false

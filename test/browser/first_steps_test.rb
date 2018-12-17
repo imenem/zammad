@@ -1,4 +1,3 @@
-
 require 'browser_test_helper'
 
 class FirstStepsTest < TestCase
@@ -23,7 +22,9 @@ class FirstStepsTest < TestCase
 
     # invite agent (with more then one group)
     click(css: '.active.content .js-inviteAgent')
-    sleep 4
+
+    modal_ready()
+
     set(
       css: '.modal [name="firstname"]',
       value: 'Bob',
@@ -49,10 +50,11 @@ class FirstStepsTest < TestCase
       css:   'body div.modal',
       value: 'Sending',
     )
+    modal_disappear()
 
     # invite customer
     click(css: '.active.content .js-inviteCustomer')
-    sleep 4
+    modal_ready()
     set(
       css: '.modal [name="firstname"]',
       value: 'Client',
@@ -81,12 +83,14 @@ class FirstStepsTest < TestCase
       css:   'body div.modal',
       value: 'Sending',
     )
+    modal_disappear()
 
     # test ticket
     click(
       css: '.active.content .js-testTicket',
       fast: true,
     )
+    modal_ready()
     watch_for(
       css:   'body div.modal',
       value: 'A Test Ticket has been created',
@@ -99,6 +103,8 @@ class FirstStepsTest < TestCase
       css:   'body div.modal',
       value: 'Test Ticket',
     )
+    modal_disappear()
+
     execute(
       js: '$(".active.content .sidebar").show()',
     )
@@ -119,6 +125,7 @@ class FirstStepsTest < TestCase
     hit = false
     37.times do
       next if !@browser.find_elements(css: '.active.content a[href="#channels/form"].todo.is-done')[0]
+
       hit = true
       break
     end

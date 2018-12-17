@@ -109,7 +109,7 @@ class ObjectManagerTest < ActiveSupport::TestCase
         updated_by_id: 1,
       )
     end
-    assert_raises(RuntimeError) do
+    assert_raises(ActiveRecord::RecordInvalid) do
       attribute4 = ObjectManager::Attribute.add(
         object: 'Ticket',
         name: 'test4',
@@ -153,7 +153,7 @@ class ObjectManagerTest < ActiveSupport::TestCase
       name: 'test5',
     )
 
-    assert_raises(RuntimeError) do
+    assert_raises(ActiveRecord::RecordInvalid) do
       attribute6 = ObjectManager::Attribute.add(
         object: 'Ticket',
         name: 'test6',
@@ -200,7 +200,7 @@ class ObjectManagerTest < ActiveSupport::TestCase
       name: 'test7',
     )
 
-    assert_raises(RuntimeError) do
+    assert_raises(ActiveRecord::RecordInvalid) do
       attribute8 = ObjectManager::Attribute.add(
         object: 'Ticket',
         name: 'test8',
@@ -242,7 +242,7 @@ class ObjectManagerTest < ActiveSupport::TestCase
       name: 'test9',
     )
 
-    assert_raises(RuntimeError) do
+    assert_raises(ActiveRecord::RecordInvalid) do
       attribute10 = ObjectManager::Attribute.add(
         object: 'Ticket',
         name: 'test10',
@@ -285,7 +285,7 @@ class ObjectManagerTest < ActiveSupport::TestCase
       name: 'test11',
     )
 
-    assert_raises(RuntimeError) do
+    assert_raises(ActiveRecord::RecordInvalid) do
       attribute12 = ObjectManager::Attribute.add(
         object: 'Ticket',
         name: 'test12',
@@ -368,27 +368,9 @@ class ObjectManagerTest < ActiveSupport::TestCase
     end
     assert_equal(false, ObjectManager::Attribute.pending_migration?)
 
-    assert_raises(RuntimeError) do
-      attribute16 = ObjectManager::Attribute.add(
-        object: 'Ticket',
-        name: 'test16',
-        display: 'Test 16',
-        data_type: 'integer',
-        data_option: {
-          default: 2,
-          min: 1,
-          max: 999,
-        },
-        active: true,
-        screens: {},
-        position: 20,
-        created_by_id: 1,
-        updated_by_id: 1,
-      )
-    end
-    assert_equal(false, ObjectManager::Attribute.pending_migration?)
+    # Test case #16 invalidated after callback added to set default #data_option[:null] value
 
-    assert_raises(RuntimeError) do
+    assert_raises(ActiveRecord::RecordInvalid) do
       attribute17 = ObjectManager::Attribute.add(
         object: 'Ticket',
         name: 'test17',
@@ -426,6 +408,52 @@ class ObjectManagerTest < ActiveSupport::TestCase
       )
     end
     assert_equal(false, ObjectManager::Attribute.pending_migration?)
+
+    attribute_count = ObjectManager::Attribute.count
+    assert_raises(RuntimeError) do
+      attribute19 = ObjectManager::Attribute.add(
+        object: 'Ticket',
+        name: 'updated_at',
+        display: 'Update Time',
+        data_type: 'datetime',
+        data_option: {
+          future: true,
+          past: true,
+          diff: 24,
+          null: true,
+        },
+        active: true,
+        screens: {},
+        position: 20,
+        created_by_id: 1,
+        updated_by_id: 1,
+      )
+      assert_equal(false, ObjectManager::Attribute.pending_migration?)
+    end
+    assert_equal(attribute_count, ObjectManager::Attribute.count)
+
+    assert_raises(RuntimeError) do
+      attribute20 = ObjectManager::Attribute.add(
+        object: 'Ticket',
+        name: 'updated_AT',
+        display: 'Update Time',
+        data_type: 'datetime',
+        data_option: {
+          future: true,
+          past: true,
+          diff: 24,
+          null: true,
+        },
+        active: true,
+        screens: {},
+        position: 20,
+        created_by_id: 1,
+        updated_by_id: 1,
+      )
+      assert_equal(false, ObjectManager::Attribute.pending_migration?)
+    end
+
+    assert_equal(attribute_count, ObjectManager::Attribute.count)
 
   end
 
@@ -698,7 +726,7 @@ class ObjectManagerTest < ActiveSupport::TestCase
     assert_equal(0, ObjectManager::Attribute.migrations.count)
 
     # create example ticket
-    ticket1 = Ticket.create(
+    ticket1 = Ticket.create!(
       title: 'some attribute test3',
       group: Group.lookup(name: 'Users'),
       customer_id: 2,
@@ -735,5 +763,464 @@ class ObjectManagerTest < ActiveSupport::TestCase
     assert_equal(ticket_count, 1)
     assert_equal(tickets[0].id, ticket1.id)
 
+    agent1 = User.create_or_update(
+      login: 'agent1@example.com',
+      firstname: 'Notification',
+      lastname: 'Agent1',
+      email: 'agent1@example.com',
+      password: 'agentpw',
+      active: true,
+      roles: Role.where(name: 'Agent'),
+      groups: Group.all,
+      updated_by_id: 1,
+      created_by_id: 1,
+    )
+
+    overview1 = Overview.create!(
+      name: 'Overview1',
+      link: 'my_overview',
+      roles: Role.all,
+      condition: {
+        'ticket.1_a_anfrage_status' => {
+          operator: 'is',
+          value: 'some attribute text',
+        },
+      },
+      order: {
+        by: '1_a_anfrage_status',
+        direction: 'DESC',
+      },
+      group_by: '1_a_anfrage_status',
+      view: {
+        d: %w[title customer state created_at],
+        s: %w[number title customer state created_at],
+        m: %w[number title customer state created_at],
+        view_mode_default: 's',
+      },
+      prio: 1,
+      updated_by_id: 1,
+      created_by_id: 1,
+    )
+
+    result = Ticket::Overviews.index(agent1)
+
+    overview = nil
+    result.each do |local_overview|
+      next if local_overview[:overview][:name] != 'Overview1'
+
+      overview = local_overview
+      break
+    end
+    assert(overview)
+
+    assert_equal(1, overview[:tickets].count)
+    assert_equal(1, overview[:count])
+    assert_equal(ticket1.id, overview[:tickets][0][:id])
   end
+
+  test 'd object manager attribute - update attribute type' do
+
+    attribute1 = ObjectManager::Attribute.add(
+      object: 'Ticket',
+      name: 'example_1',
+      display: 'example_1',
+      data_type: 'input',
+      data_option: {
+        default: '',
+        maxlength: 200,
+        type: 'text',
+        null: true,
+        options: {},
+      },
+      active: true,
+      screens: {},
+      position: 20,
+      created_by_id: 1,
+      updated_by_id: 1,
+    )
+
+    assert_equal(true, ObjectManager::Attribute.pending_migration?)
+    assert_equal(1, ObjectManager::Attribute.migrations.count)
+
+    assert(ObjectManager::Attribute.migration_execute)
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      ObjectManager::Attribute.add(
+        object: 'Ticket',
+        name: 'example_1',
+        display: 'example_1',
+        data_type: 'boolean',
+        data_option: {
+          default: true,
+          options: {
+            true: 'Yes',
+            false: 'No',
+          },
+          null: false,
+        },
+        active: true,
+        screens: {},
+        position: 200,
+        created_by_id: 1,
+        updated_by_id: 1,
+      )
+    end
+
+    attribute2 = ObjectManager::Attribute.add(
+      object: 'Ticket',
+      name: 'example_1',
+      display: 'example_1',
+      data_type: 'select',
+      data_option: {
+        default: '',
+        maxlength: 200,
+        type: 'text',
+        null: true,
+        options: {
+          aa: 'aa',
+          bb: 'bb',
+        },
+      },
+      active: true,
+      screens: {},
+      position: 20,
+      created_by_id: 1,
+      updated_by_id: 1,
+    )
+
+    assert_equal(attribute1.id, attribute2.id)
+    assert_equal(true, ObjectManager::Attribute.pending_migration?)
+    assert_equal(1, ObjectManager::Attribute.migrations.count)
+
+    assert(ObjectManager::Attribute.migration_execute)
+
+  end
+
+  test 'overview any owner / no owner is set' do
+
+    group = Group.create!(
+      name: 'OverviewTest',
+      updated_at: '2015-02-05 16:37:00',
+      updated_by_id: 1,
+      created_by_id: 1,
+    )
+    roles = Role.where(name: 'Agent')
+    agent1 = User.create!(
+      login: 'ticket-overview-agent1@example.com',
+      firstname: 'Overview',
+      lastname: 'Agent1',
+      email: 'ticket-overview-agent1@example.com',
+      password: 'agentpw',
+      active: true,
+      roles: roles,
+      groups: [group],
+      updated_at: '2015-02-05 16:37:00',
+      updated_by_id: 1,
+      created_by_id: 1,
+    )
+
+    attribute1 = ObjectManager::Attribute.add(
+      object: 'Ticket',
+      name: 'watcher',
+      display: 'watcher',
+      data_type: 'select',
+      data_option: {
+        default: '',
+        maxlength: 200,
+        type: 'text',
+        null: true,
+        options: {
+          aa: 'agent a',
+          bb: 'agent b',
+          cc: 'agent c',
+        },
+      },
+      active: true,
+      screens: {},
+      position: 20,
+      created_by_id: 1,
+      updated_by_id: 1,
+    )
+
+    assert_equal(true, ObjectManager::Attribute.pending_migration?)
+    assert_equal(1, ObjectManager::Attribute.migrations.count)
+
+    assert(ObjectManager::Attribute.migration_execute)
+
+    Ticket.destroy_all
+    Overview.destroy_all
+
+    UserInfo.current_user_id = 1
+    overview_role = Role.find_by(name: 'Agent')
+    overview1 = Overview.create!(
+      name: 'not watched',
+      prio: 1000,
+      role_ids: [overview_role.id],
+      condition: {
+        'ticket.watcher' => {
+          operator: 'is',
+          value: '',
+        },
+      },
+      order: {
+        by: 'created_at',
+        direction: 'ASC',
+      },
+      view: {
+        d: %w[title customer group created_at],
+        s: %w[title customer group created_at],
+        m: %w[number title customer group created_at],
+        view_mode_default: 's',
+      },
+    )
+
+    overview2 = Overview.create!(
+      name: 'not watched by somebody',
+      prio: 2000,
+      role_ids: [overview_role.id],
+      condition: {
+        'ticket.watcher' => {
+          operator: 'is not',
+          value: '',
+        },
+      },
+      order: {
+        by: 'created_at',
+        direction: 'ASC',
+      },
+      view: {
+        d: %w[title customer group created_at],
+        s: %w[title customer group created_at],
+        m: %w[number title customer group created_at],
+        view_mode_default: 's',
+      },
+    )
+
+    overview3 = Overview.create!(
+      name: 'not watched as array',
+      prio: 3000,
+      role_ids: [overview_role.id],
+      condition: {
+        'ticket.watcher' => {
+          operator: 'is',
+          value: [''],
+        },
+      },
+      order: {
+        by: 'created_at',
+        direction: 'ASC',
+      },
+      view: {
+        d: %w[title customer group created_at],
+        s: %w[title customer group created_at],
+        m: %w[number title customer group created_at],
+        view_mode_default: 's',
+      },
+    )
+
+    overview4 = Overview.create!(
+      name: 'not watched by somebody as array',
+      prio: 4000,
+      role_ids: [overview_role.id],
+      condition: {
+        'ticket.watcher' => {
+          operator: 'is not',
+          value: [''],
+        },
+      },
+      order: {
+        by: 'created_at',
+        direction: 'ASC',
+      },
+      view: {
+        d: %w[title customer group created_at],
+        s: %w[title customer group created_at],
+        m: %w[number title customer group created_at],
+        view_mode_default: 's',
+      },
+    )
+
+    overview5 = Overview.create!(
+      name: 'watched by aa',
+      prio: 5000,
+      role_ids: [overview_role.id],
+      condition: {
+        'ticket.watcher' => {
+          operator: 'is',
+          value: 'aa',
+        },
+      },
+      order: {
+        by: 'created_at',
+        direction: 'ASC',
+      },
+      view: {
+        d: %w[title customer group created_at],
+        s: %w[title customer group created_at],
+        m: %w[number title customer group created_at],
+        view_mode_default: 's',
+      },
+    )
+
+    overview6 = Overview.create!(
+      name: 'not watched by aa',
+      prio: 6000,
+      role_ids: [overview_role.id],
+      condition: {
+        'ticket.watcher' => {
+          operator: 'is not',
+          value: 'aa',
+        },
+      },
+      order: {
+        by: 'created_at',
+        direction: 'ASC',
+      },
+      view: {
+        d: %w[title customer group created_at],
+        s: %w[title customer group created_at],
+        m: %w[number title customer group created_at],
+        view_mode_default: 's',
+      },
+    )
+
+    overview7 = Overview.create!(
+      name: 'watched by aa array',
+      prio: 7000,
+      role_ids: [overview_role.id],
+      condition: {
+        'ticket.watcher' => {
+          operator: 'is',
+          value: ['aa'],
+        },
+      },
+      order: {
+        by: 'created_at',
+        direction: 'ASC',
+      },
+      view: {
+        d: %w[title customer group created_at],
+        s: %w[title customer group created_at],
+        m: %w[number title customer group created_at],
+        view_mode_default: 's',
+      },
+    )
+
+    overview8 = Overview.create!(
+      name: 'not watched by aa array',
+      prio: 8000,
+      role_ids: [overview_role.id],
+      condition: {
+        'ticket.watcher' => {
+          operator: 'is not',
+          value: ['aa'],
+        },
+      },
+      order: {
+        by: 'created_at',
+        direction: 'ASC',
+      },
+      view: {
+        d: %w[title customer group created_at],
+        s: %w[title customer group created_at],
+        m: %w[number title customer group created_at],
+        view_mode_default: 's',
+      },
+    )
+
+    ticket1 = Ticket.create!(
+      title: 'overview test 1',
+      group: Group.lookup(name: 'OverviewTest'),
+      customer_id: 2,
+      owner_id: 1,
+      watcher: '',
+      state: Ticket::State.lookup(name: 'new'),
+      priority: Ticket::Priority.lookup(name: '2 normal'),
+    )
+
+    travel 2.seconds
+    ticket2 = Ticket.create!(
+      title: 'overview test 2',
+      group: Group.lookup(name: 'OverviewTest'),
+      customer_id: 2,
+      owner_id: nil,
+      watcher: nil,
+      state: Ticket::State.lookup(name: 'new'),
+      priority: Ticket::Priority.lookup(name: '2 normal'),
+    )
+
+    travel 2.seconds
+    ticket3 = Ticket.create!(
+      title: 'overview test 3',
+      group: Group.lookup(name: 'OverviewTest'),
+      customer_id: 2,
+      owner_id: agent1.id,
+      watcher: 'aa',
+      state: Ticket::State.lookup(name: 'new'),
+      priority: Ticket::Priority.lookup(name: '2 normal'),
+    )
+
+    result = Ticket::Overviews.index(agent1)
+    assert_equal(result[0][:overview][:id], overview1.id)
+    assert_equal(result[0][:overview][:name], 'not watched')
+    assert_equal(result[0][:overview][:view], 'not_watched')
+    assert_equal(result[0][:tickets].class, Array)
+    assert_equal(result[0][:tickets][0][:id], ticket1.id)
+    assert_equal(result[0][:tickets][1][:id], ticket2.id)
+    assert_equal(result[0][:count], 2)
+
+    assert_equal(result[1][:overview][:id], overview2.id)
+    assert_equal(result[1][:overview][:name], 'not watched by somebody')
+    assert_equal(result[1][:overview][:view], 'not_watched_by_somebody')
+    assert_equal(result[1][:tickets].class, Array)
+    assert_equal(result[1][:tickets][0][:id], ticket3.id)
+    assert_equal(result[1][:count], 1)
+
+    assert_equal(result[2][:overview][:id], overview3.id)
+    assert_equal(result[2][:overview][:name], 'not watched as array')
+    assert_equal(result[2][:overview][:view], 'not_watched_as_array')
+    assert_equal(result[2][:tickets].class, Array)
+    assert_equal(result[2][:tickets][0][:id], ticket1.id)
+    assert_equal(result[2][:tickets][1][:id], ticket2.id)
+    assert_equal(result[2][:count], 2)
+
+    assert_equal(result[3][:overview][:id], overview4.id)
+    assert_equal(result[3][:overview][:name], 'not watched by somebody as array')
+    assert_equal(result[3][:overview][:view], 'not_watched_by_somebody_as_array')
+    assert_equal(result[3][:tickets].class, Array)
+    assert_equal(result[3][:tickets][0][:id], ticket3.id)
+    assert_equal(result[3][:count], 1)
+
+    assert_equal(result[4][:overview][:id], overview5.id)
+    assert_equal(result[4][:overview][:name], 'watched by aa')
+    assert_equal(result[4][:overview][:view], 'watched_by_aa')
+    assert_equal(result[4][:tickets].class, Array)
+    assert_equal(result[4][:tickets][0][:id], ticket3.id)
+    assert_equal(result[4][:count], 1)
+
+    assert_equal(result[5][:overview][:id], overview6.id)
+    assert_equal(result[5][:overview][:name], 'not watched by aa')
+    assert_equal(result[5][:overview][:view], 'not_watched_by_aa')
+    assert_equal(result[5][:tickets].class, Array)
+    assert_equal(result[5][:tickets][0][:id], ticket1.id)
+    assert_equal(result[5][:tickets][1][:id], ticket2.id)
+    assert_equal(result[5][:count], 2)
+
+    assert_equal(result[6][:overview][:id], overview7.id)
+    assert_equal(result[6][:overview][:name], 'watched by aa array')
+    assert_equal(result[6][:overview][:view], 'watched_by_aa_array')
+    assert_equal(result[6][:tickets].class, Array)
+    assert_equal(result[6][:tickets][0][:id], ticket3.id)
+    assert_equal(result[6][:count], 1)
+
+    assert_equal(result[7][:overview][:id], overview8.id)
+    assert_equal(result[7][:overview][:name], 'not watched by aa array')
+    assert_equal(result[7][:overview][:view], 'not_watched_by_aa_array')
+    assert_equal(result[7][:tickets].class, Array)
+    assert_equal(result[7][:tickets][0][:id], ticket1.id)
+    assert_equal(result[7][:tickets][1][:id], ticket2.id)
+    assert_equal(result[7][:count], 2)
+
+  end
+
 end

@@ -1,4 +1,4 @@
-require 'integration_test_helper'
+require 'test_helper'
 
 class ElasticsearchTest < ActiveSupport::TestCase
   include SearchindexHelper
@@ -11,7 +11,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
 
     groups = Group.where(name: 'Users')
     roles  = Role.where(name: 'Agent')
-    @agent = User.create_or_update(
+    @agent = User.create!(
       login: 'es-agent@example.com',
       firstname: 'E',
       lastname: 'S',
@@ -36,7 +36,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       updated_by_id: 1,
       created_by_id: 1,
     )
-    @customer1 = User.create_or_update(
+    @customer1 = User.create!(
       login: 'es-customer1@example.com',
       firstname: 'ES',
       lastname: 'Customer1',
@@ -48,8 +48,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       updated_by_id: 1,
       created_by_id: 1,
     )
-    sleep 1
-    @customer2 = User.create_or_update(
+    @customer2 = User.create!(
       login: 'es-customer2@example.com',
       firstname: 'ES',
       lastname: 'Customer2',
@@ -61,8 +60,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       updated_by_id: 1,
       created_by_id: 1,
     )
-    sleep 1
-    @customer3 = User.create_or_update(
+    @customer3 = User.create!(
       login: 'es-customer3@example.com',
       firstname: 'ES',
       lastname: 'Customer3',
@@ -73,6 +71,10 @@ class ElasticsearchTest < ActiveSupport::TestCase
       updated_by_id: 1,
       created_by_id: 1,
     )
+
+    # execute background jobs to index created/changed objects
+    Scheduler.worker(true)
+
   end
 
   # check search attributes
@@ -240,7 +242,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       created_by_id: 1,
     )
     ticket1.tag_add('someTagA', 1)
-    sleep 1
+    travel 1.minute
 
     ticket2 = Ticket.create!(
       title: 'something else',
@@ -266,7 +268,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       created_by_id: 1,
     )
     ticket2.tag_add('someTagB', 1)
-    sleep 1
+    travel 1.minute
 
     ticket3 = Ticket.create!(
       title: 'something else',
@@ -293,7 +295,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
 
     # execute background jobs
     Scheduler.worker(true)
-    sleep 4
+    sleep 2 # for ES to come ready/indexed
 
     # search as @agent
 
@@ -306,7 +308,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
 
     assert(result.present?, 'result exists not')
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket2.id)
 
     # search for html content
@@ -318,7 +320,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
 
     assert(result.present?, 'result exists not')
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket2.id)
 
     # search for indexed attachment
@@ -344,14 +346,14 @@ class ElasticsearchTest < ActiveSupport::TestCase
       query: 'test88',
       limit: 15,
     )
-    assert(!result[0], 'record 1')
+    assert_not(result[0], 'record 1')
 
     result = Ticket.search(
       current_user: @agent,
       query: 'test99',
       limit: 15,
     )
-    assert(!result[0], 'record 1')
+    assert_not(result[0], 'record 1')
 
     # search for ticket with no permissions
     result = Ticket.search(
@@ -360,7 +362,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       limit: 15,
     )
     assert(result.blank?, 'result should be empty')
-    assert(!result[0], 'record 1')
+    assert_not(result[0], 'record 1')
 
     # search as @customer1
     result = Ticket.search(
@@ -372,7 +374,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
     assert(result.present?, 'result exists not')
     assert(result[0], 'record 1')
     assert(result[1], 'record 2')
-    assert(!result[2], 'record 3')
+    assert_not(result[2], 'record 3')
     assert_equal(result[0].id, ticket2.id)
     assert_equal(result[1].id, ticket1.id)
 
@@ -386,7 +388,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
     assert(result.present?, 'result exists not')
     assert(result[0], 'record 1')
     assert(result[1], 'record 2')
-    assert(!result[2], 'record 3')
+    assert_not(result[2], 'record 3')
     assert_equal(result[0].id, ticket2.id)
     assert_equal(result[1].id, ticket1.id)
 
@@ -399,26 +401,26 @@ class ElasticsearchTest < ActiveSupport::TestCase
 
     assert(result.present?, 'result exists not')
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket3.id)
 
     # search for tags
     result = Ticket.search(
       current_user: @agent,
-      query: 'tag:someTagA',
+      query: 'tags:someTagA',
       limit: 15,
     )
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 1')
+    assert_not(result[1], 'record 1')
     assert_equal(result[0].id, ticket1.id)
 
     result = Ticket.search(
       current_user: @agent,
-      query: 'tag:someTagB',
+      query: 'tags:someTagB',
       limit: 15,
     )
     assert(result[0], 'record 2')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket2.id)
 
     # rename tag (e. g. via admin interface)
@@ -431,34 +433,33 @@ class ElasticsearchTest < ActiveSupport::TestCase
 
     # execute background jobs
     Scheduler.worker(true)
-
-    sleep 4
+    sleep 2 # for ES to come ready/indexed
 
     # search for tags
     result = Ticket.search(
       current_user: @agent,
-      query: 'tag:someTagA',
+      query: 'tags:someTagA',
       limit: 15,
     )
-    assert(!result[0], 'record 1')
-    assert(!result[1], 'record 1')
+    assert_not(result[0], 'record 1')
+    assert_not(result[1], 'record 1')
 
     result = Ticket.search(
       current_user: @agent,
-      query: 'tag:someTagB',
+      query: 'tags:someTagB',
       limit: 15,
     )
     assert(result[0], 'record 2')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket2.id)
 
     result = Ticket.search(
       current_user: @agent,
-      query: 'tag:someTagC',
+      query: 'tags:someTagC',
       limit: 15,
     )
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket1.id)
 
     result = Ticket.search(
@@ -467,7 +468,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       limit: 15,
     )
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket2.id)
 
     result = Ticket.search(
@@ -476,7 +477,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       limit: 15,
     )
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket1.id)
 
     result = Ticket.search(
@@ -485,7 +486,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       limit: 15,
     )
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, ticket1.id)
 
     # check users and search it
@@ -497,7 +498,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
     )
     assert(result.present?, 'result should not be empty')
     assert(result[0], 'record 1')
-    assert(!result[1], 'record 2')
+    assert_not(result[1], 'record 2')
     assert_equal(result[0].id, @customer1.id)
 
     # search as @customer1
@@ -507,7 +508,7 @@ class ElasticsearchTest < ActiveSupport::TestCase
       limit: 15,
     )
     assert(result.blank?, 'result should be empty')
-    assert(!result[0], 'record 1')
+    assert_not(result[0], 'record 1')
 
     # cleanup
     Rake::Task['searchindex:drop'].execute

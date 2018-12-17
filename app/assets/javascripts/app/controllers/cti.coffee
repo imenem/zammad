@@ -1,4 +1,7 @@
 class App.CTI extends App.Controller
+  @extend App.PopoverProvidable
+  @registerPopovers 'User'
+
   elements:
     '.js-callerLog': 'callerLog'
   events:
@@ -24,6 +27,13 @@ class App.CTI extends App.Controller
         @load()
       @delay(delay, 500, 'cti_list_push_render')
       'cti_list_push'
+    )
+    @bind('cti_event', (data) =>
+      return if data.state isnt 'newCall'
+      return if data.direction isnt 'in'
+      return if @switch() isnt true
+      @notify(data)
+      'cti_event'
     )
     @bind('auth', (data) =>
       @meta.counter = 0
@@ -71,6 +81,7 @@ class App.CTI extends App.Controller
         # render new caller list
         if data.list
           @list = data.list
+          @updateNavMenu()
           if @renderDone
             @renderCallerLog()
             return
@@ -88,6 +99,7 @@ class App.CTI extends App.Controller
   featureActive: =>
     return true if @Config.get('sipgate_integration')
     return true if @Config.get('cti_integration')
+    return true if @Config.get('placetel_integration')
     false
 
   render: ->
@@ -109,20 +121,6 @@ class App.CTI extends App.Controller
     @renderCallerLog()
 
   renderCallerLog: ->
-    format = (time) ->
-
-      # Hours, minutes and seconds
-      hrs = ~~parseInt((time / 3600))
-      mins = ~~parseInt(((time % 3600) / 60))
-      secs = parseInt(time % 60)
-
-      # Output like "1:01" or "4:03:59" or "123:03:59"
-      mins = "0#{mins}" if mins < 10
-      secs = "0#{secs}" if secs < 10
-      if hrs > 0
-        return "#{hrs}:#{mins}:#{secs}"
-      "#{mins}:#{secs}"
-
     for item in @list
       item.status_class = ''
       item.disabled = true
@@ -145,16 +143,14 @@ class App.CTI extends App.Controller
         if item.comment
           item.state_human += ", #{item.comment}"
 
-      if item.start && item.end
-        item.duration = format((Date.parse(item.end) - Date.parse(item.start))/1000)
-
       diff_in_min = ((Date.now() - Date.parse(item.created_at)) / 1000) / 60
       if diff_in_min > 1
         item.disabled = false
 
-    @userPopupsDestroy()
-    @callerLog.html( App.view('cti/caller_log')(list: @list))
-    @userPopups()
+    @removePopovers()
+    @callerLog.html(App.view('cti/caller_log')(list: @list))
+    @renderPopovers()
+
     @updateNavMenu()
 
   done: (e) =>
@@ -198,9 +194,9 @@ class App.CTI extends App.Controller
   counter: =>
     count = 0
     for item in @list
-      if item.state is 'hangup' && !item.done
+      if !item.done
         count++
-    @meta.counter + count
+    @meta.counter = count
 
   switch: (state = undefined) =>
 

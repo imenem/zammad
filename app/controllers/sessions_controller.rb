@@ -2,7 +2,7 @@
 
 class SessionsController < ApplicationController
   prepend_before_action :authentication_check, only: %i[switch_to_user list delete]
-  skip_before_action :verify_csrf_token, only: %i[create show destroy create_omniauth create_sso]
+  skip_before_action :verify_csrf_token, only: %i[create show destroy create_omniauth failure_omniauth create_sso]
 
   # "Create" a login, aka "log the user in"
   def create
@@ -69,7 +69,7 @@ class SessionsController < ApplicationController
       user_id = session[:user_id]
     end
 
-    if !user_id
+    if !user_id || !User.exists?(user_id)
       # get models
       models = SessionHelper.models()
 
@@ -114,12 +114,13 @@ class SessionsController < ApplicationController
   # "Delete" a login, aka "log the user out"
   def destroy
 
+    reset_session
+
     # Remove the user id from the session
     @_current_user = nil
 
     # reset session
     request.env['rack.session.options'][:expire_after] = nil
-    session.clear
 
     render json: {}
   end
@@ -162,6 +163,10 @@ class SessionsController < ApplicationController
 
     # redirect to app
     redirect_to '/'
+  end
+
+  def failure_omniauth
+    raise Exceptions::UnprocessableEntity, "Message from #{params[:strategy]}: #{params[:message]}"
   end
 
   def create_sso
@@ -283,10 +288,13 @@ class SessionsController < ApplicationController
     sessions_clean = []
     SessionHelper.list.each do |session|
       next if session.data['user_id'].blank?
+
       sessions_clean.push session
       next if session.data['user_id']
+
       user = User.lookup(id: session.data['user_id'])
       next if !user
+
       assets = user.assets(assets)
     end
     render json: {
@@ -309,8 +317,10 @@ class SessionsController < ApplicationController
     config = {}
     Setting.select('name, preferences').where(frontend: true).each do |setting|
       next if setting.preferences[:authentication] == true && !current_user
+
       value = Setting.get(setting.name)
       next if !current_user && (value == false || value.nil?)
+
       config[setting.name] = value
     end
 

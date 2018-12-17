@@ -1,4 +1,3 @@
-
 require 'test_helper'
 
 class SessionBasicTicketTest < ActiveSupport::TestCase
@@ -55,20 +54,29 @@ class SessionBasicTicketTest < ActiveSupport::TestCase
 
     travel 120.minutes
 
+    client1.time_now = Time.zone.now.to_i
     assert(client1.asset_needed_by_updated_at?(ticket.class.to_s, ticket.id, ticket.updated_at))
     client1.asset_push(ticket, {})
+
+    client2.time_now = Time.zone.now.to_i
     assert(client2.asset_needed_by_updated_at?(ticket.class.to_s, ticket.id, ticket.updated_at))
     client2.asset_push(ticket, {})
 
+    client1.time_now = Time.zone.now.to_i
     assert_not(client1.asset_needed_by_updated_at?(ticket.class.to_s, ticket.id, ticket.updated_at))
     client1.asset_push(ticket, {})
+
+    client2.time_now = Time.zone.now.to_i
     assert_not(client2.asset_needed_by_updated_at?(ticket.class.to_s, ticket.id, ticket.updated_at))
     client2.asset_push(ticket, {})
 
     ticket.touch
 
+    client1.time_now = Time.zone.now.to_i
     assert(client1.asset_needed_by_updated_at?(ticket.class.to_s, ticket.id, ticket.updated_at))
     client1.asset_push(ticket, {})
+
+    client2.time_now = Time.zone.now.to_i
     assert(client2.asset_needed_by_updated_at?(ticket.class.to_s, ticket.id, ticket.updated_at))
     client2.asset_push(ticket, {})
 
@@ -77,8 +85,11 @@ class SessionBasicTicketTest < ActiveSupport::TestCase
 
     travel 125.minutes
 
+    client1.time_now = Time.zone.now.to_i
     assert(client1.asset_needed?(ticket))
     client1.asset_push(ticket, {})
+
+    client2.time_now = Time.zone.now.to_i
     assert(client2.asset_needed?(ticket))
     client2.asset_push(ticket, {})
 
@@ -105,12 +116,12 @@ class SessionBasicTicketTest < ActiveSupport::TestCase
 
     # next check should be empty / no changes
     result1 = client1.push
-    assert(!result1, 'check ticket_overview_index - recall')
+    assert_not(result1, 'check ticket_overview_index - recall')
 
     # next check should be empty / no changes
     travel 3.seconds
     result1 = client1.push
-    assert(!result1, 'check ticket_overview_index - recall 2')
+    assert_not(result1, 'check ticket_overview_index - recall 2')
 
     # create ticket
     ticket3 = Ticket.create!(title: '12323', group_id: 1, priority_id: 1, state_id: 1, customer_id: 1)
@@ -137,11 +148,11 @@ class SessionBasicTicketTest < ActiveSupport::TestCase
     assert_not(result1[1][:data][:assets][:Ticket])
 
     result1 = client1.push
-    assert(!result1, 'check ticket_overview_index - recall 5')
+    assert_not(result1, 'check ticket_overview_index - recall 5')
 
     Sessions::Backend::TicketOverviewList.reset(@agent1.id)
     result1 = client1.push
-    assert(!result1, 'check ticket_overview_index - recall 6')
+    assert_not(result1, 'check ticket_overview_index - recall 6')
 
     ticket4 = Ticket.create!(title: '12323 - 2', group_id: 1, priority_id: 1, state_id: 1, customer_id: 1)
     Sessions::Backend::TicketOverviewList.reset(@agent1.id)

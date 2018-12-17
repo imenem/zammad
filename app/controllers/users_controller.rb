@@ -405,10 +405,13 @@ class UsersController < ApplicationController
       query: query,
       limit: per_page,
       offset: offset,
+      sort_by: params[:sort_by],
+      order_by: params[:order_by],
       current_user: current_user,
     }
     %i[role_ids permissions].each do |key|
       next if params[key].blank?
+
       query_params[key] = params[key]
     end
 
@@ -472,67 +475,6 @@ class UsersController < ApplicationController
       list.push user.attributes_with_association_ids
     end
     render json: list, status: :ok
-  end
-
-  # @path       [GET] /users/recent
-  #
-  # @tag Search
-  # @tag User
-  #
-  # @summary          Recent creates Users.
-  # @notes            Recent creates Users.
-  #
-  # @parameter        limit           [Integer]       The limit of search results.
-  # @parameter        role_ids(multi) [Array<String>] A list of Role identifiers to which the Users have to be allocated to.
-  # @parameter        full            [Boolean]       Defines if the result should be
-  #                                                   true: { user_ids => [1,2,...], assets => {...} }
-  #                                                   or false: [{:id => user.id, :label => "firstname lastname <email>", :value => "firstname lastname <email>"},...].
-  #
-  # @response_message 200 [Array<User>] A list of User records matching the search term.
-  # @response_message 401               Invalid session.
-  def recent
-
-    if !current_user.permissions?('admin.user')
-      response_access_deny
-      return
-    end
-
-    # do query
-    user_all = if params[:role_ids].present?
-                 User.joins(:roles).where('roles.id' => params[:role_ids]).where('users.id != 1').order('users.created_at DESC').limit(params[:limit] || 20)
-               else
-                 User.where('id != 1').order('created_at DESC').limit(params[:limit] || 20)
-               end
-
-    # build result list
-    if !response_full?
-      users = []
-      user_all.each do |user|
-        realname = user.firstname.to_s + ' ' + user.lastname.to_s
-        if user.email && user.email.to_s != ''
-          realname = realname + ' <' + user.email.to_s + '>'
-        end
-        a = { id: user.id, label: realname, value: realname }
-        users.push a
-      end
-
-      # return result
-      render json: users
-      return
-    end
-
-    user_ids = []
-    assets   = {}
-    user_all.each do |user|
-      assets = user.assets(assets)
-      user_ids.push user.id
-    end
-
-    # return result
-    render json: {
-      assets: assets,
-      user_ids: user_ids.uniq,
-    }
   end
 
   # @path       [GET] /users/history/{id}
@@ -886,6 +828,7 @@ curl http://localhost/api/v1/users/out_of_office -v -u #{login}:#{password} -H "
 
   def out_of_office
     raise Exceptions::UnprocessableEntity, 'No current user!' if !current_user
+
     user = User.find(current_user.id)
     user.with_lock do
       user.assign_attributes(
@@ -1100,7 +1043,12 @@ curl http://localhost/api/v1/users/avatar -v -u #{login}:#{password} -H "Content
   # @response_message 401 Invalid session.
   def import_start
     permission_check('admin.user')
-    string = params[:data] || params[:file].read.force_encoding('utf-8')
+    string = params[:data]
+    if string.blank? && params[:file].present?
+      string = params[:file].read.force_encoding('utf-8')
+    end
+    raise Exceptions::UnprocessableEntity, 'No source data submitted!' if string.blank?
+
     result = User.csv_import(
       string: string,
       parse_params: {
@@ -1124,6 +1072,7 @@ curl http://localhost/api/v1/users/avatar -v -u #{login}:#{password} -H "Content
     if Setting.get('password_min_2_lower_2_upper_characters').to_i == 1 && ( password !~ /[A-Z].*[A-Z]/ || password !~ /[a-z].*[a-z]/ )
       return ["Can't update password, it must contain at least 2 lowercase and 2 uppercase characters!"]
     end
+
     true
   end
 end

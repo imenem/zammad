@@ -4,6 +4,10 @@ class User
   module Search
     extend ActiveSupport::Concern
 
+    included do
+      include HasSearchSortable
+    end
+
     # methods defined here are going to extend the class, not the instance of it
     class_methods do
 
@@ -28,6 +32,7 @@ returns if user has no permissions to search
 
       def search_preferences(current_user)
         return false if !current_user.permissions?('ticket.agent') && !current_user.permissions?('admin.user')
+
         {
           prio: 2000,
           direct_search_index: true,
@@ -54,6 +59,14 @@ or with certain role_ids | permissions
     current_user: user_model,
     role_ids: [1,2,3],
     permissions: ['ticket.agent']
+
+    # sort single column
+    sort_by: 'created_at',
+    order_by: 'asc',
+
+    # sort multiple columns
+    sort_by: [ 'created_at', 'updated_at' ],
+    order_by: [ 'asc', 'desc' ],
   )
 
 returns
@@ -70,6 +83,12 @@ returns
         offset = params[:offset] || 0
         current_user = params[:current_user]
 
+        # check sort
+        sort_by = search_get_sort_by(params, 'updated_at')
+
+        # check order
+        order_by = search_get_order_by(params, 'desc')
+
         # enable search only for agents and admins
         return [] if !search_preferences(current_user)
 
@@ -82,27 +101,35 @@ returns
 
         # try search index backend
         if SearchIndexBackend.enabled?
-          query_extention = {}
+          query_extension = {}
           if params[:role_ids].present?
-            query_extention['bool'] = {}
-            query_extention['bool']['must'] = []
+            query_extension['bool'] = {}
+            query_extension['bool']['must'] = []
             if !params[:role_ids].is_a?(Array)
               params[:role_ids] = [params[:role_ids]]
             end
             access_condition = {
               'query_string' => { 'default_field' => 'role_ids', 'query' => "\"#{params[:role_ids].join('" OR "')}\"" }
             }
-            query_extention['bool']['must'].push access_condition
+            query_extension['bool']['must'].push access_condition
           end
-          items = SearchIndexBackend.search(query, limit, 'User', query_extention, offset)
+
+          items = SearchIndexBackend.search(query, 'User', limit: limit,
+                                                           query_extension: query_extension,
+                                                           from: offset,
+                                                           sort_by: sort_by,
+                                                           order_by: order_by)
           users = []
           items.each do |item|
             user = User.lookup(id: item[:id])
             next if !user
+
             users.push user
           end
           return users
         end
+
+        order_sql = search_get_order_sql(sort_by, order_by, 'users.updated_at DESC')
 
         # fallback do sql query
         # - stip out * we already search for *query* -
@@ -110,11 +137,11 @@ returns
         users = if params[:role_ids]
                   User.joins(:roles).where('roles.id' => params[:role_ids]).where(
                     '(users.firstname LIKE ? OR users.lastname LIKE ? OR users.email LIKE ? OR users.login LIKE ?) AND users.id != 1', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
-                  ).order('updated_at DESC').offset(offset).limit(limit)
+                  ).order(order_sql).offset(offset).limit(limit)
                 else
                   User.where(
                     '(firstname LIKE ? OR lastname LIKE ? OR email LIKE ? OR login LIKE ?) AND id != 1', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
-                  ).order('updated_at DESC').offset(offset).limit(limit)
+                  ).order(order_sql).offset(offset).limit(limit)
                 end
         users
       end

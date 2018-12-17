@@ -25,6 +25,7 @@ class ActiveSupport::TestCase
     # exit all threads
     Thread.list.each do |thread|
       next if thread == Thread.current
+
       thread.exit
       thread.join
     end
@@ -49,6 +50,10 @@ class ActiveSupport::TestCase
     travel_back
   end
 
+  teardown do
+    travel_back
+  end
+
   # Add more helper methods to be used by all tests here...
   def email_notification_count(type, recipient)
 
@@ -59,10 +64,11 @@ class ActiveSupport::TestCase
       lines.push line
     end
     count = 0
-    lines.reverse.each do |line|
+    lines.reverse_each do |line|
       break if line.match?(/\+\+\+\+NEW\+\+\+\+TEST\+\+\+\+/)
       next if line !~ /Send notification \(#{type}\)/
       next if line !~ /to:\s#{recipient}/
+
       count += 1
     end
     count
@@ -77,10 +83,11 @@ class ActiveSupport::TestCase
       lines.push line
     end
     count = 0
-    lines.reverse.each do |line|
+    lines.reverse_each do |line|
       break if line.match?(/\+\+\+\+NEW\+\+\+\+TEST\+\+\+\+/)
       next if line !~ /Send email to:/
       next if line !~ /to:\s'#{recipient}'/
+
       count += 1
     end
     count

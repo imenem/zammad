@@ -7,9 +7,7 @@ class Observer::Ticket::Article::CommunicateTelegram::BackgroundJob
     article = Ticket::Article.find(@article_id)
 
     # set retry count
-    if !article.preferences['delivery_retry']
-      article.preferences['delivery_retry'] = 0
-    end
+    article.preferences['delivery_retry'] ||= 0
     article.preferences['delivery_retry'] += 1
 
     ticket = Ticket.lookup(id: article.ticket_id)
@@ -87,7 +85,7 @@ class Observer::Ticket::Article::CommunicateTelegram::BackgroundJob
 
   def log_error(local_record, message)
     local_record.preferences['delivery_status'] = 'fail'
-    local_record.preferences['delivery_status_message'] = message
+    local_record.preferences['delivery_status_message'] = message.encode!('UTF-8', 'UTF-8', invalid: :replace, replace: '?')
     local_record.preferences['delivery_status_date'] = Time.zone.now
     local_record.save
     Rails.logger.error message
@@ -120,6 +118,7 @@ class Observer::Ticket::Article::CommunicateTelegram::BackgroundJob
     if Rails.env.production?
       return current_time + attempts * 120.seconds
     end
+
     current_time + 5.seconds
   end
 end

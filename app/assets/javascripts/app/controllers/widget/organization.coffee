@@ -1,4 +1,7 @@
 class App.WidgetOrganization extends App.Controller
+  @extend App.PopoverProvidable
+  @registerPopovers 'User'
+
   events:
     'focusout [contenteditable]': 'update'
 
@@ -25,12 +28,20 @@ class App.WidgetOrganization extends App.Controller
       if nameNew of organization
         name = nameNew
 
-      # add to show if value exists
-      if ( organization[name] || attributeConfig.tag is 'richtext' ) && attributeConfig.shown
+      # do not show name since it's already shown via diplayName()
+      continue if name is 'name'
 
-        # do not show firstname and lastname / already show via diplayName()
-        if name isnt 'name'
-          organizationData.push attributeConfig
+      # do not show if configured to be not shown
+      continue if !attributeConfig.shown
+
+      # Fix for issue #2277 - note is not shown for customer/organisations if it's empty
+      # Always show for these two conditions:
+      # 1. the attribute exists and is not empty
+      # 2. it is a richtext note field
+      continue if ( !organization[name]? || organization[name] is '' ) && attributeConfig.tag isnt 'richtext'
+
+      # add to show if all checks passed
+      organizationData.push attributeConfig
 
     # insert userData
     @html App.view('widget/organization')(
@@ -44,16 +55,7 @@ class App.WidgetOrganization extends App.Controller
       maxlength: 250
     )
 
-    # enable user popups
-    @userPopups()
-
-    ###
-    @userTicketPopups(
-      selector: '.user-tickets'
-      user_id:  user.id
-      position: 'right'
-    )
-    ###
+    @renderPopovers()
 
   update: (e) =>
     name  = $(e.target).attr('data-name')

@@ -2,10 +2,8 @@
 
 class Tag < ApplicationModel
 
-  # rubocop:disable Rails/InverseOf
   belongs_to :tag_object, class_name: 'Tag::Object'
   belongs_to :tag_item,   class_name: 'Tag::Item'
-  # rubocop:enable Rails/InverseOf
 
   # the noop is needed since Layout/EmptyLines detects
   # the block commend below wrongly as the measurement of
@@ -158,6 +156,7 @@ returns
     tag_search.each_with_object([]) do |tag, result|
       tag_item = Tag::Item.lookup(id: tag.tag_item_id)
       next if !tag_item
+
       result.push tag_item.name
     end
   end
@@ -259,6 +258,8 @@ rename tag items
         return true
       end
 
+      update_referenced_objects(old_tag_item.name, new_tag_name)
+
       # update new tag name
       old_tag_item.name = new_tag_name
       old_tag_item.save
@@ -301,6 +302,54 @@ remove tag item (destroy with reverences)
     def fill_namedowncase
       self.name_downcase = name.downcase
       true
+    end
+
+=begin
+
+  Update referenced objects such as triggers, overviews, schedulers, and postmaster filters
+
+  Specifically, the following fields are updated:
+
+  Overview.condition
+  Trigger.condition   Trigger.perform
+  Job.condition       Job.perform
+                      PostmasterFilter.perform
+
+=end
+
+    def self.update_referenced_objects(old_name, new_name)
+      objects = Overview.all + Trigger.all + Job.all + PostmasterFilter.all
+
+      objects.each do |object|
+        changed = false
+        if object.has_attribute?(:condition)
+          changed |= update_condition_hash object.condition, old_name, new_name
+        end
+        if object.has_attribute?(:perform)
+          changed |= update_condition_hash object.perform, old_name, new_name
+        end
+        object.save if changed
+      end
+    end
+
+    def self.update_condition_hash(hash, old_name, new_name)
+      changed = false
+      hash.each do |key, condition|
+        next if %w[ticket.tags x-zammad-ticket-tags].exclude? key
+        next if condition[:value].split(', ').exclude? old_name
+
+        condition[:value] = update_name(condition[:value], old_name, new_name)
+        changed = true
+      end
+      changed
+    end
+
+    def self.update_name(condition, old_name, new_name)
+      tags = condition.split(', ')
+      return new_name if tags.size == 1
+
+      tags = tags.map { |t| t == old_name ? new_name : t }
+      tags.join(', ')
     end
 
   end

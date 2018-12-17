@@ -6,14 +6,18 @@ class Sequencer
       module Common
         module Model
           class Save < Sequencer::Unit::Base
+            prepend ::Sequencer::Unit::Import::Common::Model::Mixin::Skip::Action
             include ::Sequencer::Unit::Import::Common::Model::Mixin::HandleFailure
 
-            uses :instance, :dry_run
+            uses :instance, :action, :dry_run
             provides :instance
+
+            skip_action :skipped, :failed, :unchanged
 
             def process
               return if dry_run
               return if instance.blank?
+
               instance.save!
             rescue => e
               handle_failure(e)

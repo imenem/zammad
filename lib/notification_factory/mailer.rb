@@ -32,6 +32,7 @@ returns
 
     return if !user.preferences
     return if !user.preferences['notification_config']
+
     matrix = user.preferences['notification_config']['matrix']
     return if !matrix
 
@@ -79,11 +80,14 @@ returns
       end
     end
     return if !matrix[type]
+
     data = matrix[type]
     return if !data
     return if !data['criteria']
+
     channels = data['channel']
     return if !channels
+
     if data['criteria']['owned_by_me'] && owned_by_me
       return {
         user: user,
@@ -97,6 +101,7 @@ returns
       }
     end
     return if !data['criteria']['no']
+
     {
       user: user,
       channels: channels
@@ -107,10 +112,10 @@ returns
 
   success = NotificationFactory::Mailer.send(
     recipient:    User.find(123),
-    subject:      'sime subject',
+    subject:      'some subject',
     body:         'some body',
     content_type: '', # optional, e. g. 'text/html'
-    message_id: '<some_message_id@fqdn>', # optional
+    message_id:   '<some_message_id@fqdn>', # optional
     references:   ['message-id123', 'message-id456'], # optional
     attachments:  [attachments...], # optional
   )
@@ -119,7 +124,7 @@ returns
 
   def self.send(data)
     sender = Setting.get('notification_sender')
-    Rails.logger.info "Send notification to: #{data[:recipient][:email]} (from #{sender})"
+    Rails.logger.info "Send notification to: #{data[:recipient][:email]} (from:#{sender}/subject:#{data[:subject]})"
 
     content_type = 'text/plain'
     if data[:content_type]
@@ -212,6 +217,7 @@ retunes
       next if item['object'] != 'Ticket'
       next if item['value_to'] !~ /#{recipient.email}/i
       next if item['value_to'] !~ /#{type}/i
+
       count += 1
     end
     count

@@ -14,6 +14,7 @@ module SearchindexHelper
   def configure_elasticsearch(required: false)
     if ENV['ES_URL'].blank?
       return if !required
+
       raise "ERROR: Need ES_URL - hint ES_URL='http://127.0.0.1:9200'"
     end
 
@@ -32,6 +33,7 @@ module SearchindexHelper
     if ENV['ES_INDEX'].blank?
       raise "ERROR: Need ES_INDEX - hint ES_INDEX='estest.local_zammad'"
     end
+
     Setting.set('es_index', ENV['ES_INDEX'])
 
     # set max attachment size in mb
@@ -43,15 +45,7 @@ module SearchindexHelper
   def rebuild_searchindex
     Rake::Task.clear
     Zammad::Application.load_tasks
-
-    if ENV['ES_INDEX_RAND'].blank?
-      Rake::Task['searchindex:rebuild'].execute
-    else
-      # if we have a random index we don't need
-      # to drop the index in the first place
-      Rake::Task['searchindex:create'].execute
-      Rake::Task['searchindex:reload'].execute
-    end
+    Rake::Task['searchindex:rebuild'].execute
   end
 
 end

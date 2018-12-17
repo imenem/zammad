@@ -1,4 +1,3 @@
-
 require 'browser_test_helper'
 
 class ManageTest < TestCase
@@ -28,13 +27,14 @@ class ManageTest < TestCase
     )
 
     click(css: '.table-overview tr:last-child td')
-    sleep 2
 
+    modal_ready()
     set(
       css: '.modal input[name="lastname"]',
       value: "2Manage Lastname#{random}",
     )
     click(css: '.modal button.js-submit')
+    modal_disappear()
 
     watch_for(
       css: 'body',
@@ -55,8 +55,8 @@ class ManageTest < TestCase
     sleep 1
 
     click(css: '.content:not(.hide) .action:last-child .js-edit')
-    sleep 1
 
+    modal_ready()
     set(
       css: '.modal input[name=name]',
       value: "some sla update #{random}",
@@ -66,6 +66,7 @@ class ManageTest < TestCase
       value: '2:01',
     )
     click(css: '.modal button.js-submit')
+    modal_disappear()
 
     watch_for(
       css: 'body',

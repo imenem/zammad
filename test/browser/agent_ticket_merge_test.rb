@@ -1,4 +1,3 @@
-
 require 'browser_test_helper'
 
 class AgentTicketMergeTest < TestCase
@@ -58,11 +57,8 @@ class AgentTicketMergeTest < TestCase
     # merge tickets
     click( css: '.active div[data-tab="ticket"] .js-actions .icon-arrow-down' )
     click( css: '.active div[data-tab="ticket"] .js-actions [data-type="ticket-merge"]' )
-    watch_for(
-      css: '.modal',
-      value: 'merge',
-    )
 
+    modal_ready()
     set(
       css: '.modal input[name="master_ticket_number"]',
       value: ticket1[:number],
@@ -115,11 +111,8 @@ class AgentTicketMergeTest < TestCase
     # merge tickets
     click( css: '.active div[data-tab="ticket"] .js-actions .icon-arrow-down' )
     click( css: '.active div[data-tab="ticket"] .js-actions [data-type="ticket-merge"]' )
-    watch_for(
-      css: '.modal',
-      value: 'merge',
-    )
 
+    modal_ready()
     set(
       css: '.modal input[name="master_ticket_number"]',
       value: ticket3[:number],

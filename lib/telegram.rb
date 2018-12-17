@@ -38,6 +38,7 @@ returns
     if callback_url.match?(%r{^http://}i)
       raise 'webhook url need to start with https://, you use http://'
     end
+
     api = TelegramAPI.new(token)
     begin
       api.setWebhook(callback_url)
@@ -73,6 +74,7 @@ returns
     if params[:group_id].blank?
       raise 'Group needed!'
     end
+
     group = Group.find_by(id: params[:group_id])
     if !group
       raise 'Group invalid!'
@@ -120,6 +122,7 @@ returns
       next if !channel.options[:bot][:id]
       next if channel.options[:bot][:id] != bot_id
       next if channel.id.to_s == channel_id.to_s
+
       return true
     end
     false
@@ -164,6 +167,7 @@ returns
     %i[message edited_message].each do |key|
       next if !params[key]
       next if !params[key][:message_id]
+
       message_id = params[key][:message_id]
       break
     end
@@ -172,6 +176,7 @@ returns
         next if !params[key]
         next if !params[key][:chat]
         next if !params[key][:chat][:id]
+
         message_id = "#{message_id}.#{params[key][:chat][:id]}"
       end
     end
@@ -200,6 +205,7 @@ returns
 
   def message(chat_id, message)
     return if Rails.env.test?
+
     @api.sendMessage(chat_id, message)
   end
 
@@ -269,6 +275,7 @@ returns
     %i[text caption].each do |area|
       next if !params[:message]
       next if !params[:message][area]
+
       title = params[:message][area]
       break
     end
@@ -278,6 +285,7 @@ returns
           next if !params[:message]
           next if !params[:message][area]
           next if !params[:message][area][:emoji]
+
           title = params[:message][area][:emoji]
           break
         rescue
@@ -382,6 +390,7 @@ returns
           last_height = file['height'].to_i
         end
         next if file['width'].to_i >= max_width || file['width'].to_i <= last_width
+
         photo = file
         last_width = file['width'].to_i
         last_height = file['height'].to_i
@@ -396,6 +405,7 @@ returns
       if !result.success? || !result.body
         raise "Unable for download image from telegram: #{result.code}"
       end
+
       body = "<img style=\"width:#{last_width}px;height:#{last_height}px;\" src=\"data:image/png;base64,#{Base64.strict_encode64(result.body)}\">"
       if params[:message][:caption]
         body += "<br>#{params[:message][:caption].text2html}"
@@ -417,6 +427,7 @@ returns
         if !result.success? || !result.body
           raise "Unable for download image from telegram: #{result.code}"
         end
+
         body = "<img style=\"width:#{width}px;height:#{height}px;\" src=\"data:image/png;base64,#{Base64.strict_encode64(result.body)}\">"
       end
       document_result = download_file(params[:message][:document][:file_id])
@@ -476,6 +487,7 @@ returns
         if !result.success? || !result.body
           raise "Unable for download image from telegram: #{result.code}"
         end
+
         body = "<img style=\"width:#{width}px;height:#{height}px;\" src=\"data:image/webp;base64,#{Base64.strict_encode64(result.body)}\">"
         article.content_type = 'text/html'
       elsif emoji
@@ -521,6 +533,7 @@ returns
     # map channel_post params to message
     if params[:channel_post]
       return if params[:channel_post][:new_chat_title] # happens when channel title is renamed, we use [:chat][:title] already, safely ignore this.
+
       # note: used .blank? which is a rails method. empty? does not work on integers (values like date, width, height)  to check.
       # need delete_if to remove any empty hashes, .compact only removes keys with nil values.
       params[:message] = {
@@ -569,7 +582,7 @@ returns
           last_name: 'Channel',
           username: "channel#{params.dig(:channel_post, :chat, :id)}"
         },
-        caption: (params.dig(:channel_post, :caption) ? params.dig(:channel_post, :caption) : {}),
+        caption: (params.dig(:channel_post, :caption) || {}),
         date: params.dig(:channel_post, :date),
         message_id: params.dig(:channel_post, :message_id),
         text: params.dig(:channel_post, :text),
@@ -611,6 +624,7 @@ returns
     if params[:edited_message]
       article = Ticket::Article.find_by(message_id: Telegram.message_id(params))
       return if !article
+
       params[:message] = params[:edited_message]
       user = to_user(params)
       to_article(params, user, article.ticket, channel, article)
@@ -671,6 +685,7 @@ returns
     state = Ticket::State.find_by(default_create: true)
     return state if !ticket
     return ticket.state if ticket.state.id == state.id
+
     Ticket::State.find_by(default_follow_up: true)
   end
 

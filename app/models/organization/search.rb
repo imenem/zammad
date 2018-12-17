@@ -4,6 +4,10 @@ class Organization
   module Search
     extend ActiveSupport::Concern
 
+    included do
+      include HasSearchSortable
+    end
+
     # methods defined here are going to extend the class, not the instance of it
     class_methods do
 
@@ -28,6 +32,7 @@ returns if user has no permissions to search
 
       def search_preferences(current_user)
         return false if !current_user.permissions?('ticket.agent') && !current_user.permissions?('admin.organization')
+
         {
           prio: 1000,
           direct_search_index: true,
@@ -43,6 +48,14 @@ search organizations
     query: 'search something',
     limit: 15,
     offset: 100,
+
+    # sort single column
+    sort_by: 'created_at',
+    order_by: 'asc',
+
+    # sort multiple columns
+    sort_by: [ 'created_at', 'updated_at' ],
+    order_by: [ 'asc', 'desc' ],
   )
 
 returns
@@ -59,26 +72,39 @@ returns
         offset = params[:offset] || 0
         current_user = params[:current_user]
 
+        # check sort
+        sort_by = search_get_sort_by(params, 'updated_at')
+
+        # check order
+        order_by = search_get_order_by(params, 'desc')
+
         # enable search only for agents and admins
         return [] if !search_preferences(current_user)
 
         # try search index backend
         if SearchIndexBackend.enabled?
-          items = SearchIndexBackend.search(query, limit, 'Organization', {}, offset)
+          items = SearchIndexBackend.search(query, 'Organization', limit: limit,
+                                                                   from: offset,
+                                                                   sort_by: sort_by,
+                                                                   order_by: order_by)
           organizations = []
           items.each do |item|
             organization = Organization.lookup(id: item[:id])
             next if !organization
+
             organizations.push organization
           end
           return organizations
         end
 
+        order_select_sql = search_get_order_select_sql(sort_by, order_by, 'organizations.updated_at')
+        order_sql        = search_get_order_sql(sort_by, order_by, 'organizations.updated_at ASC')
+
         # fallback do sql query
         # - stip out * we already search for *query* -
         query.delete! '*'
         organizations = Organization.where_or_cis(%i[name note], "%#{query}%")
-                                    .order('name')
+                                    .order(order_sql)
                                     .offset(offset)
                                     .limit(limit)
                                     .to_a
@@ -89,10 +115,10 @@ returns
         return organizations if organizations.length > 3
 
         # if only a few organizations are found, search for names of users
-        organizations_by_user = Organization.select('DISTINCT(organizations.id), organizations.name')
+        organizations_by_user = Organization.select("DISTINCT(organizations.id), #{order_select_sql}")
                                             .joins('LEFT OUTER JOIN users ON users.organization_id = organizations.id')
                                             .where(User.or_cis(%i[firstname lastname email], "%#{query}%"))
-                                            .order('organizations.name')
+                                            .order(order_sql)
                                             .limit(limit)
 
         organizations_by_user.each do |organization_by_user|
@@ -100,12 +126,14 @@ returns
           organization_exists = false
           organizations.each do |organization|
             next if organization.id != organization_by_user.id
+
             organization_exists = true
             break
           end
 
           # get model with full data
           next if organization_exists
+
           organizations.push Organization.find(organization_by_user.id)
         end
         organizations
