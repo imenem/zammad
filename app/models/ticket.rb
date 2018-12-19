@@ -271,6 +271,29 @@ returns
     result
   end
 
+  def self.process_abandoned
+    state_types = Ticket::StateType.where(name: ['open', 'pending reminder', 'pending action', 'merged']).pluck(:id)
+    state_ids = Ticket::State.where(state_type_id: state_types).pluck(:id)
+
+    result = []
+    closed = Ticket::State.find_by_name 'closed'
+
+    ticket_ids = Ticket.where('state_id IN (?) AND last_contact_customer_at < ?', state_ids, 2.days.ago).pluck(:id)
+    ticket_ids.each do |ticket_id|
+      ticket = Ticket.find_by(id: ticket_id)
+      next if !ticket
+
+      Transaction.execute do
+        ticket.state_id = closed.id
+        ticket.save!
+      end
+
+      result.push ticket
+    end
+
+    result
+  end
+
 =begin
 
 merge tickets
