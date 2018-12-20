@@ -782,6 +782,8 @@ condition example
           time = Time.zone.now - selector['value'].to_i.months
         elsif selector['range'] == 'year'
           time = Time.zone.now - selector['value'].to_i.years
+        elsif selector['range'] == 'second'
+          time = Time.zone.now - selector['value'].to_i.seconds
         else
           raise "Unknown selector attributes '#{selector.inspect}'"
         end
@@ -799,6 +801,8 @@ condition example
           time = Time.zone.now + selector['value'].to_i.months
         elsif selector['range'] == 'year'
           time = Time.zone.now + selector['value'].to_i.years
+        elsif selector['range'] == 'second'
+          time = Time.zone.now - selector['value'].to_i.seconds
         else
           raise "Unknown selector attributes '#{selector.inspect}'"
         end
@@ -816,6 +820,8 @@ condition example
           time = Time.zone.now - selector['value'].to_i.months
         elsif selector['range'] == 'year'
           time = Time.zone.now - selector['value'].to_i.years
+        elsif selector['range'] == 'second'
+          time = Time.zone.now - selector['value'].to_i.seconds
         else
           raise "Unknown selector attributes '#{selector.inspect}'"
         end
@@ -833,6 +839,8 @@ condition example
           time = Time.zone.now + selector['value'].to_i.months
         elsif selector['range'] == 'year'
           time = Time.zone.now + selector['value'].to_i.years
+        elsif selector['range'] == 'second'
+          time = Time.zone.now - selector['value'].to_i.seconds
         else
           raise "Unknown selector attributes '#{selector.inspect}'"
         end
