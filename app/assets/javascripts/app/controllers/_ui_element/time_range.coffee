@@ -2,6 +2,7 @@
 class App.UiElement.time_range
   @render: (attribute) ->
     ranges =
+      second: 'Second(s)'
       minute: 'Minute(s)'
       hour: 'Hour(s)'
       day: 'Day(s)'
@@ -14,6 +15,7 @@ class App.UiElement.time_range
     if attribute.value && attribute.value.range
       range = attribute.value.range
     values =
+      second: [1..120]
       minute: [1..120]
       hour: [1..48]
       day: [1..31]
