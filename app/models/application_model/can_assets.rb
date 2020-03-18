@@ -68,6 +68,7 @@ get assets and record_ids of selector
         attribute_class = attribute[0].to_classname.constantize
       rescue => e
         next if attribute[0] == 'article'
+        next if attribute[0] == 'execution_time'
 
         logger.error "Unable to get asset for '#{attribute[0]}': #{e.inspect}"
         next
@@ -99,6 +100,10 @@ get assets and record_ids of selector
     assets
   end
 
+  def assets_added_to?(data)
+    data.dig(self.class.to_app_model, id).present?
+  end
+
   # methods defined here are going to extend the class, not the instance of it
   class_methods do
 
@@ -118,7 +123,7 @@ return object and assets
       object = find(id)
       assets = object.assets({})
       {
-        id: object.id,
+        id:     object.id,
         assets: assets,
       }
     end
@@ -145,7 +150,9 @@ get assets of object list
     def assets_of_object_list(list, assets = {})
       list.each do |item|
         require_dependency item['object'].to_filename
-        record = Kernel.const_get(item['object']).find(item['o_id'])
+        record = item['object'].constantize.lookup(id: item['o_id'])
+        next if record.blank?
+
         assets = record.assets(assets)
         if item['created_by_id'].present?
           user = User.find(item['created_by_id'])
@@ -157,6 +164,33 @@ get assets of object list
         end
       end
       assets
+    end
+  end
+
+=begin
+
+Compiles an assets hash for given items
+
+@param items  [Array<CanAssets>] list of items responding to @see #assets
+@param data   [Hash] given collection. Empty {} or assets collection in progress
+@param suffix [String] try to use non-default assets method
+@return [Hash] collection including assets of items
+
+@example
+  list = Ticket.all
+  ApplicationModel::CanAssets.reduce(list, {})
+
+=end
+
+  def self.reduce(items, data = {}, suffix = nil)
+    items.reduce(data) do |memo, elem|
+      method_name = if suffix.present? && elem.respond_to?("assets_#{suffix}")
+                      "assets_#{suffix}"
+                    else
+                      :assets
+                    end
+
+      elem.send method_name, memo
     end
   end
 end

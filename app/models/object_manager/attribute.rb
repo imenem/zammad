@@ -22,10 +22,10 @@ class ObjectManager::Attribute < ApplicationModel
 
   self.table_name = 'object_manager_attributes'
 
-  belongs_to :object_lookup
+  belongs_to :object_lookup, optional: true
 
   validates :name, presence: true
-  validates :data_type, inclusion: { in: DATA_TYPES, msg: '%{value} is not a valid data type' }
+  validates :data_type, inclusion: { in: DATA_TYPES, msg: '%{value} is not a valid data type' } # rubocop:disable Style/FormatStringToken
   validate :data_option_must_have_appropriate_values
   validate :data_type_must_not_change, on: :update
 
@@ -54,7 +54,6 @@ list of all attributes
     result = ObjectManager::Attribute.all.order('position ASC, name ASC')
     references = ObjectManager::Attribute.attribute_to_references_hash
     attributes = []
-    assets = {}
     result.each do |item|
       attribute = item.attributes
       attribute[:object] = ObjectLookup.by_id(item.object_lookup_id)
@@ -134,6 +133,7 @@ possible types
     maxlength: 200,
     null: true,
     note: 'some additional comment', # optional
+    link_template: '',               # optional
   },
 
 # select
@@ -151,6 +151,7 @@ possible types
     multiple: false, # currently only "false" supported
     translate: true, # optional
     note: 'some additional comment', # optional
+    link_template: '',               # optional
   },
 
 # tree_select
@@ -302,7 +303,7 @@ possible types
     # check new entry - is needed
     record = ObjectManager::Attribute.find_by(
       object_lookup_id: data[:object_lookup_id],
-      name: data[:name],
+      name:             data[:name],
     )
     if record
 
@@ -400,7 +401,7 @@ use "force: true" to delete also not editable fields
     # check newest entry - is needed
     record = ObjectManager::Attribute.find_by(
       object_lookup_id: data[:object_lookup_id],
-      name: data[:name],
+      name:             data[:name],
     )
     if !record
       raise "ERROR: No such field #{data[:object]}.#{data[:name]}"
@@ -448,7 +449,7 @@ get the attribute model based on object and name
 
     ObjectManager::Attribute.find_by(
       object_lookup_id: data[:object_lookup_id],
-      name: data[:name],
+      name:             data[:name],
     )
   end
 
@@ -478,16 +479,16 @@ returns:
     # get attributes in right order
     result = ObjectManager::Attribute.where(
       object_lookup_id: object_lookup_id,
-      active: true,
-      to_create: false,
-      to_delete: false,
+      active:           true,
+      to_create:        false,
+      to_delete:        false,
     ).order('position ASC, name ASC')
     attributes = []
     result.each do |item|
       data = {
-        name: item.name,
+        name:    item.name,
         display: item.display,
-        tag: item.data_type,
+        tag:     item.data_type,
         #:null     => item.null,
       }
       if item.data_option[:permission]&.any?
@@ -507,11 +508,24 @@ returns:
         data[:screen] = {}
         item.screens.each do |screen, permission_options|
           data[:screen][screen] = {}
+
+          if permission_options['-all-']
+            data[:screen][screen] = permission_options['-all-']
+            next
+          end
+
           permission_options.each do |permission, options|
-            if permission == '-all-'
-              data[:screen][screen] = options
-            elsif user&.permissions?(permission)
-              data[:screen][screen] = options
+            next if !user&.permissions?(permission)
+
+            options.each do |key, value|
+              if [true, false].include?(data[:screen][screen][key])
+                data[:screen][screen][key] = data[:screen][screen][key].nil? ? false : data[:screen][screen][key]
+                if options[key]
+                  data[:screen][screen][key] = true
+                end
+              else
+                data[:screen][screen][key] = value
+              end
             end
           end
         end
@@ -629,7 +643,7 @@ to send no browser reload event, pass false
     execute_db_count = 0
     execute_config_count = 0
     migrations.each do |attribute|
-      model = Kernel.const_get(attribute.object_lookup.name)
+      model = attribute.object_lookup.name.constantize
 
       # remove field
       if attribute.to_delete
@@ -683,7 +697,7 @@ to send no browser reload event, pass false
             attribute.name,
             data_type,
             limit: attribute.data_option[:maxlength],
-            null: true
+            null:  true
           )
         elsif attribute.data_type.match?(/^integer|user_autocompletion|datetime|date$/)
           ActiveRecord::Migration.change_column(
@@ -691,7 +705,7 @@ to send no browser reload event, pass false
             attribute.name,
             data_type,
             default: attribute.data_option[:default],
-            null: true
+            null:    true
           )
         elsif attribute.data_type.match?(/^boolean|active$/)
           ActiveRecord::Migration.change_column(
@@ -699,7 +713,7 @@ to send no browser reload event, pass false
             attribute.name,
             data_type,
             default: attribute.data_option[:default],
-            null: true
+            null:    true
           )
         else
           raise "Unknown attribute.data_type '#{attribute.data_type}', can't update attribute"
@@ -722,7 +736,7 @@ to send no browser reload event, pass false
           attribute.name,
           data_type,
           limit: attribute.data_option[:maxlength],
-          null: true
+          null:  true
         )
       elsif attribute.data_type.match?(/^integer|user_autocompletion$/)
         ActiveRecord::Migration.add_column(
@@ -730,7 +744,7 @@ to send no browser reload event, pass false
           attribute.name,
           data_type,
           default: attribute.data_option[:default],
-          null: true
+          null:    true
         )
       elsif attribute.data_type.match?(/^boolean|active$/)
         ActiveRecord::Migration.add_column(
@@ -738,7 +752,7 @@ to send no browser reload event, pass false
           attribute.name,
           data_type,
           default: attribute.data_option[:default],
-          null: true
+          null:    true
         )
       elsif attribute.data_type.match?(/^datetime|date$/)
         ActiveRecord::Migration.add_column(
@@ -746,7 +760,7 @@ to send no browser reload event, pass false
           attribute.name,
           data_type,
           default: attribute.data_option[:default],
-          null: true
+          null:    true
         )
       else
         raise "Unknown attribute.data_type '#{attribute.data_type}', can't create attribute"
@@ -896,34 +910,49 @@ is certain attribute used by triggers, overviews or schedulers
   def check_name
     return if !name
 
-    raise 'Name can\'t get used, *_id and *_ids are not allowed' if name.match?(/_(id|ids)$/i) || name.match?(/^id$/i)
-    raise 'Spaces in name are not allowed' if name.match?(/\s/)
-    raise 'Only letters from a-z, numbers from 0-9, and _ are allowed' if !name.match?(/^[a-z0-9_]+$/)
-    raise 'At least one letters is needed' if !name.match?(/[a-z]/)
+    if name.match?(/.+?_(id|ids)$/i)
+      errors.add(:name, "can't get used because *_id and *_ids are not allowed")
+    end
+    if name.match?(/\s/)
+      errors.add(:name, 'spaces are not allowed')
+    end
+    if !name.match?(/^[a-z0-9_]+$/)
+      errors.add(:name, 'Only letters from a-z because numbers from 0-9 and _ are allowed')
+    end
+    if !name.match?(/[a-z]/)
+      errors.add(:name, 'At least one letters is needed')
+    end
 
     # do not allow model method names as attributes
-    reserved_words = %w[destroy true false integer select drop create alter index table varchar blob date datetime timestamp]
-    raise "#{name} is a reserved word, please choose a different one" if name.match?(/^(#{reserved_words.join('|')})$/)
+    reserved_words = %w[destroy true false integer select drop create alter index table varchar blob date datetime timestamp url icon initials avatar permission validate subscribe unsubscribe translate search _type _doc _id id]
+    if name.match?(/^(#{reserved_words.join('|')})$/)
+      errors.add(:name, "#{name} is a reserved word! (1)")
+    end
 
     # fixes issue #2236 - Naming an attribute "attribute" causes ActiveRecord failure
     begin
       ObjectLookup.by_id(object_lookup_id).constantize.instance_method_already_implemented? name
-    rescue  ActiveRecord::DangerousAttributeError => e
-      raise "#{name} is a reserved word, please choose a different one"
+    rescue  ActiveRecord::DangerousAttributeError
+      errors.add(:name, "#{name} is a reserved word! (2)")
     end
 
     record = object_lookup.name.constantize.new
-    return true if !record.respond_to?(name.to_sym)
-    raise "#{name} already exists!" if record.attributes.key?(name) && new_record?
-    return true if record.attributes.key?(name)
+    if record.respond_to?(name.to_sym) && record.attributes.key?(name) && new_record?
+      errors.add(:name, "#{name} already exists!")
+    end
 
-    raise "#{name} is a reserved word, please choose a different one"
+    if errors.present?
+      raise ActiveRecord::RecordInvalid, self
+    end
+
+    true
   end
 
   def check_editable
     return if editable
 
-    raise 'Attribute not editable!'
+    errors.add(:name, 'Attribute not editable!')
+    raise ActiveRecord::RecordInvalid, self
   end
 
   private
@@ -1001,11 +1030,7 @@ is certain attribute used by triggers, overviews or schedulers
        { failed:  local_data_option[:diff].nil?,
          message: 'must have integer value for :diff (in hours)' }]
     when 'date'
-      [{ failed:  local_data_option[:future].nil?,
-         message: 'must have boolean value for :future' },
-       { failed:  local_data_option[:past].nil?,
-         message: 'must have boolean value for :past' },
-       { failed:  local_data_option[:diff].nil?,
+      [{ failed:  local_data_option[:diff].nil?,
          message: 'must have integer value for :diff (in days)' }]
     else
       []

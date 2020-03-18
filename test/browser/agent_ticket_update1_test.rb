@@ -6,22 +6,22 @@ class AgentTicketUpdate1Test < TestCase
     login(
       username: 'agent1@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
     tasks_close_all()
 
     # confirm on create
     ticket_create(
-      data: {
+      data:          {
         customer: 'nico',
-        group: 'Users',
-        title: 'some changes',
-        body: 'some body 123äöü - changes',
+        group:    'Users',
+        title:    'some changes',
+        body:     'some body 123äöü - changes',
       },
       do_not_submit: true,
     )
     close_task(
-      data: {
+      data:            {
         title: 'some changes',
       },
       discard_changes: true,
@@ -29,22 +29,22 @@ class AgentTicketUpdate1Test < TestCase
     sleep 1
 
     # confirm on zoom
-    ticket1 = ticket_create(
+    ticket_create(
       data: {
         customer: 'nico',
-        group: 'Users',
-        title: 'some changes',
-        body: 'some body 123äöü - changes',
+        group:    'Users',
+        title:    'some changes',
+        body:     'some body 123äöü - changes',
       },
     )
     ticket_update(
-      data: {
+      data:          {
         body: 'some note',
       },
       do_not_submit: true,
     )
     close_task(
-      data: {
+      data:            {
         title: 'some changes',
       },
       discard_changes: true,

@@ -1,10 +1,12 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class Ticket < ApplicationModel
+  include CanBeImported
   include HasActivityStreamLog
   include ChecksClientNotification
   include ChecksLatestChangeObserved
   include CanCsvImport
+  include ChecksHtmlSanitized
   include HasHistory
   include HasTags
   include HasSearchIndexBackend
@@ -12,6 +14,7 @@ class Ticket < ApplicationModel
   include HasKarmaActivityLog
   include HasLinks
   include Ticket::ChecksAccess
+  include HasObjectManagerAttributesValidation
 
   include Ticket::Escalation
   include Ticket::Subject
@@ -27,7 +30,7 @@ class Ticket < ApplicationModel
 
   activity_stream_permission 'ticket.agent'
 
-  activity_stream_attributes_ignored :organization_id, # organization_id will channge automatically on user update
+  activity_stream_attributes_ignored :organization_id, # organization_id will change automatically on user update
                                      :create_article_type_id,
                                      :create_article_sender_id,
                                      :article_count,
@@ -53,18 +56,22 @@ class Ticket < ApplicationModel
                              :article_count,
                              :preferences
 
-  belongs_to    :group
-  belongs_to    :organization
+  history_relation_object 'Ticket::Article'
+
+  sanitized_html :note
+
+  belongs_to    :group, optional: true
+  belongs_to    :organization, optional: true
   has_many      :articles,               class_name: 'Ticket::Article', after_add: :cache_update, after_remove: :cache_update, dependent: :destroy, inverse_of: :ticket
   has_many      :ticket_time_accounting, class_name: 'Ticket::TimeAccounting', dependent: :destroy, inverse_of: :ticket
-  belongs_to    :state,                  class_name: 'Ticket::State'
-  belongs_to    :priority,               class_name: 'Ticket::Priority'
-  belongs_to    :owner,                  class_name: 'User'
-  belongs_to    :customer,               class_name: 'User'
-  belongs_to    :created_by,             class_name: 'User'
-  belongs_to    :updated_by,             class_name: 'User'
-  belongs_to    :create_article_type,    class_name: 'Ticket::Article::Type'
-  belongs_to    :create_article_sender,  class_name: 'Ticket::Article::Sender'
+  belongs_to    :state,                  class_name: 'Ticket::State', optional: true
+  belongs_to    :priority,               class_name: 'Ticket::Priority', optional: true
+  belongs_to    :owner,                  class_name: 'User', optional: true
+  belongs_to    :customer,               class_name: 'User', optional: true
+  belongs_to    :created_by,             class_name: 'User', optional: true
+  belongs_to    :updated_by,             class_name: 'User', optional: true
+  belongs_to    :create_article_type,    class_name: 'Ticket::Article::Type', optional: true
+  belongs_to    :create_article_sender,  class_name: 'Ticket::Article::Sender', optional: true
 
   self.inheritance_column = nil
 
@@ -120,7 +127,7 @@ returns
       tickets = where(state_id: next_state_map.keys)
                 .where('pending_time <= ?', Time.zone.now)
 
-      tickets.each do |ticket|
+      tickets.find_each(batch_size: 500) do |ticket|
         Transaction.execute do
           ticket.state_id      = next_state_map[ticket.state_id]
           ticket.updated_at    = Time.zone.now
@@ -144,7 +151,7 @@ returns
       tickets = where(state_id: reminder_state_map.keys)
                 .where('pending_time <= ?', Time.zone.now)
 
-      tickets.each do |ticket|
+      tickets.find_each(batch_size: 500) do |ticket|
 
         article_id = nil
         article = Ticket::Article.last_customer_agent_article(ticket.id)
@@ -154,11 +161,11 @@ returns
 
         # send notification
         Transaction::BackgroundJob.run(
-          object: 'Ticket',
-          type: 'reminder_reached',
-          object_id: ticket.id,
+          object:     'Ticket',
+          type:       'reminder_reached',
+          object_id:  ticket.id,
           article_id: article_id,
-          user_id: 1,
+          user_id:    1,
         )
 
         result.push ticket
@@ -183,14 +190,8 @@ returns
   def self.process_escalation
     result = []
 
-    # get max warning diff
-
-    tickets = where('escalation_at <= ?', Time.zone.now + 15.minutes)
-
-    tickets.each do |ticket|
-
-      # get sla
-      sla = ticket.escalation_calculation_get_sla
+    # fetch all escalated and soon to be escalating tickets
+    where('escalation_at <= ?', Time.zone.now + 15.minutes).find_each(batch_size: 500) do |ticket|
 
       article_id = nil
       article = Ticket::Article.last_customer_agent_article(ticket.id)
@@ -201,11 +202,11 @@ returns
       # send escalation
       if ticket.escalation_at < Time.zone.now
         Transaction::BackgroundJob.run(
-          object: 'Ticket',
-          type: 'escalation',
-          object_id: ticket.id,
+          object:     'Ticket',
+          type:       'escalation',
+          object_id:  ticket.id,
           article_id: article_id,
-          user_id: 1,
+          user_id:    1,
         )
         result.push ticket
         next
@@ -213,11 +214,11 @@ returns
 
       # check if warning need to be sent
       Transaction::BackgroundJob.run(
-        object: 'Ticket',
-        type: 'escalation_warning',
-        object_id: ticket.id,
+        object:     'Ticket',
+        type:       'escalation_warning',
+        object_id:  ticket.id,
         article_id: article_id,
-        user_id: 1,
+        user_id:    1,
       )
       result.push ticket
     end
@@ -327,39 +328,55 @@ returns
       # quiet update of reassign of articles
       Ticket::Article.where(ticket_id: id).update_all(['ticket_id = ?', data[:ticket_id]]) # rubocop:disable Rails/SkipsModelValidations
 
-      # update history
+      # mark target ticket as updated
+      # otherwise the "received_merge" history entry
+      # will be the same as the last updated_at
+      # which might be a long time ago
+      target_ticket.updated_at = Time.zone.now
+
+      # add merge event to both ticket's history (Issue #2469 - Add information "Ticket merged" to History)
+      target_ticket.history_log(
+        'received_merge',
+        data[:user_id],
+        id_to:   target_ticket.id,
+        id_from: id,
+      )
+      history_log(
+        'merged_into',
+        data[:user_id],
+        id_to:   target_ticket.id,
+        id_from: id,
+      )
 
       # create new merge article
       Ticket::Article.create(
-        ticket_id: id,
-        type_id: Ticket::Article::Type.lookup(name: 'note').id,
-        sender_id: Ticket::Article::Sender.lookup(name: 'Agent').id,
-        body: 'merged',
-        internal: false,
+        ticket_id:     id,
+        type_id:       Ticket::Article::Type.lookup(name: 'note').id,
+        sender_id:     Ticket::Article::Sender.lookup(name: 'Agent').id,
+        body:          'merged',
+        internal:      false,
         created_by_id: data[:user_id],
         updated_by_id: data[:user_id],
       )
 
-      # add history to both
-
       # reassign links to the new ticket
       # rubocop:disable Rails/SkipsModelValidations
       Link.where(
-        link_object_source_id: Link::Object.find_by(name: 'Ticket').id,
+        link_object_source_id:    Link::Object.find_by(name: 'Ticket').id,
         link_object_source_value: id,
       ).update_all(link_object_source_value: data[:ticket_id])
       Link.where(
-        link_object_target_id: Link::Object.find_by(name: 'Ticket').id,
+        link_object_target_id:    Link::Object.find_by(name: 'Ticket').id,
         link_object_target_value: id,
       ).update_all(link_object_target_value: data[:ticket_id])
       # rubocop:enable Rails/SkipsModelValidations
 
       # link tickets
       Link.add(
-        link_type: 'parent',
-        link_object_source: 'Ticket',
+        link_type:                'parent',
+        link_object_source:       'Ticket',
         link_object_source_value: data[:ticket_id],
-        link_object_target: 'Ticket',
+        link_object_target:       'Ticket',
         link_object_target_value: id
       )
 
@@ -380,19 +397,10 @@ returns
 
 =begin
 
-check if online notifcation should be shown in general as already seen with current state
+check if online notification should be shown in general as already seen with current state
 
   ticket = Ticket.find(1)
   seen = ticket.online_notification_seen_state(user_id_check)
-
-returns
-
-  result = true # or false
-
-check if online notifcation should be shown for this user as already seen with current state
-
-  ticket = Ticket.find(1)
-  seen = ticket.online_notification_seen_state(check_user_id)
 
 returns
 
@@ -439,33 +447,36 @@ returns
 
 get count of tickets and tickets which match on selector
 
-  ticket_count, tickets = Ticket.selectors(params[:condition], limit, current_user, 'full')
+  ticket_count, tickets = Ticket.selectors(params[:condition], limit: limit, current_user: current_user, access: 'full')
 
 =end
 
-  def self.selectors(selectors, limit = 10, current_user = nil, access = 'full')
+  def self.selectors(selectors, options)
+    limit = options[:limit] || 10
+    current_user = options[:current_user]
+    access = options[:access] || 'full'
     raise 'no selectors given' if !selectors
 
-    query, bind_params, tables = selector2sql(selectors, current_user)
+    query, bind_params, tables = selector2sql(selectors, current_user: current_user, execution_time: options[:execution_time])
     return [] if !query
 
     ActiveRecord::Base.transaction(requires_new: true) do
-      begin
-        if !current_user
-          ticket_count = Ticket.distinct.where(query, *bind_params).joins(tables).count
-          tickets = Ticket.distinct.where(query, *bind_params).joins(tables).limit(limit)
-          return [ticket_count, tickets]
-        end
 
-        access_condition = Ticket.access_condition(current_user, access)
-        ticket_count = Ticket.distinct.where(access_condition).where(query, *bind_params).joins(tables).count
-        tickets = Ticket.distinct.where(access_condition).where(query, *bind_params).joins(tables).limit(limit)
-
+      if !current_user
+        ticket_count = Ticket.distinct.where(query, *bind_params).joins(tables).count
+        tickets = Ticket.distinct.where(query, *bind_params).joins(tables).limit(limit)
         return [ticket_count, tickets]
-      rescue ActiveRecord::StatementInvalid => e
-        Rails.logger.error e
-        raise ActiveRecord::Rollback
       end
+
+      access_condition = Ticket.access_condition(current_user, access)
+      ticket_count = Ticket.distinct.where(access_condition).where(query, *bind_params).joins(tables).count
+      tickets = Ticket.distinct.where(access_condition).where(query, *bind_params).joins(tables).limit(limit)
+
+      return [ticket_count, tickets]
+    rescue ActiveRecord::StatementInvalid => e
+      Rails.logger.error e
+      raise ActiveRecord::Rollback
+
     end
     []
   end
@@ -474,7 +485,7 @@ get count of tickets and tickets which match on selector
 
 generate condition query to search for tickets based on condition
 
-  query_condition, bind_condition, tables = selector2sql(params[:condition], current_user)
+  query_condition, bind_condition, tables = selector2sql(params[:condition], current_user: current_user)
 
 condition example
 
@@ -517,7 +528,8 @@ condition example
 
 =end
 
-  def self.selector2sql(selectors, current_user = nil)
+  def self.selector2sql(selectors, options = {})
+    current_user = options[:current_user]
     current_user_id = UserInfo.current_user_id
     if current_user
       current_user_id = current_user.id
@@ -539,6 +551,7 @@ condition example
       selector = attribute.split(/\./)
       next if !selector[1]
       next if selector[0] == 'ticket'
+      next if selector[0] == 'execution_time'
       next if tables.include?(selector[0])
 
       if query != ''
@@ -565,6 +578,7 @@ condition example
     end
 
     # add conditions
+    no_result = false
     selectors.each do |attribute, selector_raw|
 
       # validation
@@ -573,7 +587,7 @@ condition example
 
       selector = selector_raw.stringify_keys
       raise "Invalid selector, operator missing #{selector.inspect}" if !selector['operator']
-      raise "Invalid selector, operator #{selector['operator']} is invalid #{selector.inspect}" if selector['operator'] !~ /^(is|is\snot|contains|contains\s(not|all|one|all\snot|one\snot)|(after|before)\s\(absolute\)|(within\snext|within\slast|after|before)\s\(relative\))$/
+      raise "Invalid selector, operator #{selector['operator']} is invalid #{selector.inspect}" if !selector['operator'].match?(/^(is|is\snot|contains|contains\s(not|all|one|all\snot|one\snot)|(after|before)\s\(absolute\)|(within\snext|within\slast|after|before)\s\(relative\))|(is\sin\sworking\stime|is\snot\sin\sworking\stime)$/)
 
       # validate value / allow blank but only if pre_condition exists and is not specific
       if !selector.key?('value') ||
@@ -598,6 +612,22 @@ condition example
 
       if attributes[0] == 'ticket' && attributes[1] == 'tags'
         selector['value'] = selector['value'].split(/,/).collect(&:strip)
+      end
+
+      if selector['operator'].include?('in working time')
+        next if attributes[1] != 'calendar_id'
+        raise 'Please enable execution_time feature to use it (currently only allowed for triggers and schedulers)' if !options[:execution_time]
+
+        biz = Calendar.lookup(id: selector['value'])&.biz
+        next if biz.blank?
+
+        if ( selector['operator'] == 'is in working time' && !biz.in_hours?(Time.zone.now) ) || ( selector['operator'] == 'is not in working time' && biz.in_hours?(Time.zone.now) )
+          no_result = true
+          break
+        end
+
+        # skip to next condition
+        next
       end
 
       if query != ''
@@ -716,20 +746,14 @@ condition example
         bind_params.push selector['value'].count
         bind_params.push selector['value']
       elsif selector['operator'] == 'contains one' && attributes[0] == 'ticket' && attributes[1] == 'tags'
-        query += "1 <= (
-                          SELECT
-                            COUNT(*)
-                          FROM
-                            tag_objects,
-                            tag_items,
-                            tags
-                          WHERE
-                            tickets.id = tags.o_id AND
-                            tag_objects.id = tags.tag_object_id AND
-                            tag_objects.name = 'Ticket' AND
-                            tag_items.id = tags.tag_item_id AND
-                            tag_items.name IN (?)
-                        )"
+        tables += ', tag_objects, tag_items, tags'
+        query += "
+          tickets.id = tags.o_id AND
+          tag_objects.id = tags.tag_object_id AND
+          tag_objects.name = 'Ticket' AND
+          tag_items.id = tags.tag_item_id AND
+          tag_items.name IN (?)"
+
         bind_params.push selector['value']
       elsif selector['operator'] == 'contains all not' && attributes[0] == 'ticket' && attributes[1] == 'tags'
         query += "0 = (
@@ -850,6 +874,8 @@ condition example
       end
     end
 
+    return if no_result
+
     [query, bind_params, tables]
   end
 
@@ -883,12 +909,17 @@ perform changes on ticket
     end
 
     perform_notification = {}
+    perform_article = {}
     changed = false
     perform.each do |key, value|
       (object_name, attribute) = key.split('.', 2)
-      raise "Unable to update object #{object_name}.#{attribute}, only can update tickets and send notifications!" if object_name != 'ticket' && object_name != 'notification'
+      raise "Unable to update object #{object_name}.#{attribute}, only can update tickets, send notifications and create articles!" if object_name != 'ticket' && object_name != 'article' && object_name != 'notification'
 
-      # send notification (after changes are done)
+      # send notification/create article (after changes are done)
+      if object_name == 'article'
+        perform_article[key] = value
+        next
+      end
       if object_name == 'notification'
         perform_notification[key] = value
         next
@@ -918,7 +949,7 @@ perform changes on ticket
         next if value['value'].blank?
         next if value['value'] != 'delete'
 
-        logger.debug { "Deleted ticket from #{perform_origin} #{perform.inspect} Ticket.find(#{id})" }
+        logger.info { "Deleted ticket from #{perform_origin} #{perform.inspect} Ticket.find(#{id})" }
         destroy!
         next
       end
@@ -945,6 +976,25 @@ perform changes on ticket
 
     if changed
       save!
+    end
+
+    perform_article.each do |key, value|
+      raise 'Unable to create article, we only support article.note' if key != 'article.note'
+
+      Ticket::Article.create!(
+        ticket_id:     id,
+        subject:       value[:subject],
+        content_type:  'text/html',
+        body:          value[:body],
+        internal:      value[:internal],
+        sender:        Ticket::Article::Sender.find_by(name: 'System'),
+        type:          Ticket::Article::Type.find_by(name: 'note'),
+        preferences:   {
+          perform_origin: perform_origin,
+        },
+        updated_by_id: 1,
+        created_by_id: 1,
+      )
     end
 
     perform_notification.each do |key, value|
@@ -990,7 +1040,7 @@ perform active triggers on ticket
     end
 
     triggers = if Rails.configuration.db_case_sensitive
-                 ::Trigger.where(active: true).order('LOWER(name)')
+                 ::Trigger.where(active: true).order(Arel.sql('LOWER(name)'))
                else
                  ::Trigger.where(active: true).order(:name)
                end
@@ -1088,7 +1138,7 @@ perform active triggers on ticket
         # check if ticket selector is matching
         condition['ticket.id'] = {
           operator: 'is',
-          value: ticket.id,
+          value:    ticket.id,
         }
         next if article_selector && !article
 
@@ -1096,12 +1146,12 @@ perform active triggers on ticket
         if article_selector
           condition['article.id'] = {
             operator: 'is',
-            value: article.id,
+            value:    article.id,
           }
         end
 
         # verify is condition is matching
-        ticket_count, tickets = Ticket.selectors(condition, 1)
+        ticket_count, tickets = Ticket.selectors(condition, limit: 1, execution_time: true)
 
         next if ticket_count.blank?
         next if ticket_count.zero?
@@ -1118,10 +1168,8 @@ perform active triggers on ticket
           return [true, message]
         end
 
-        local_send_notification = true
         if article && send_notification == false && trigger.perform['notification.email'] && trigger.perform['notification.email']['recipient']
           recipient = trigger.perform['notification.email']['recipient']
-          local_send_notification = false
           local_options[:send_notification] = false
           if recipient.include?('ticket_customer') || recipient.include?('article_last_sender')
             logger.info { "Skip trigger (#{trigger.name}/#{trigger.id}) because sender do not want to get auto responder for object (Ticket/#{ticket.id}/Article/#{article.id})" }
@@ -1186,37 +1234,16 @@ result
 
 get all articles of a ticket in correct order (overwrite active record default method)
 
-  artilces = ticket.articles
+  articles = ticket.articles
 
 result
 
-  [article1, articl2]
+  [article1, article2]
 
 =end
 
   def articles
     Ticket::Article.where(ticket_id: id).order(:created_at, :id)
-  end
-
-  def history_get(fulldata = false)
-    list = History.list(self.class.name, self['id'], 'Ticket::Article')
-    return list if !fulldata
-
-    # get related objects
-    assets = {}
-    list.each do |item|
-      record = Kernel.const_get(item['object']).find(item['o_id'])
-      assets = record.assets(assets)
-
-      if item['related_object']
-        record = Kernel.const_get(item['related_object']).find( item['related_o_id'])
-        assets = record.assets(assets)
-      end
-    end
-    {
-      history: list,
-      assets: assets,
-    }
   end
 
   private
@@ -1309,7 +1336,7 @@ result
   # (see https://github.com/zammad/zammad/issues/1543)
   def build_notification_template_objects(article)
     {
-      ticket: self,
+      ticket:  self,
       article: article || articles.last
     }
   end
@@ -1344,6 +1371,13 @@ result
         User.group_access(group_id, 'full').sort_by(&:login).each do |user|
           recipients_raw.push(user.email)
         end
+      elsif recipient =~ /\Auserid_(\d+)\z/
+        user = User.lookup(id: $1)
+        if !user
+          logger.warn "Can't find configured Trigger Email recipient User with ID '#{$1}'"
+          next
+        end
+        recipients_raw.push(user.email)
       else
         logger.error "Unknown email notification recipient '#{recipient}'"
         next
@@ -1368,15 +1402,15 @@ result
       end
       next if skip_user
 
-      # send notifications only to email adresses
+      # send notifications only to email addresses
       next if recipient_email.blank?
-      next if recipient_email !~ /@/
 
       # check if address is valid
       begin
         Mail::AddressList.new(recipient_email).addresses.each do |address|
           recipient_email = address.address
-          break if recipient_email.present? && recipient_email =~ /@/ && !recipient_email.match?(/\s/)
+          email_address_validation = EmailAddressValidation.new(recipient_email)
+          break if recipient_email.present? && email_address_validation.valid_format?
         end
       rescue
         if recipient_email.present?
@@ -1386,10 +1420,10 @@ result
 
           recipient_email = "#{$2}@#{$3}"
         end
-        next if recipient_email.blank?
-        next if recipient_email !~ /@/
-        next if recipient_email.match?(/\s/)
       end
+
+      email_address_validation = EmailAddressValidation.new(recipient_email)
+      next if !email_address_validation.valid_format?
 
       # do not sent notifications to this recipients
       send_no_auto_response_reg_exp = Setting.get('send_no_auto_response_reg_exp')
@@ -1409,9 +1443,9 @@ result
 
       # loop protection / check if maximal count of trigger mail has reached
       map = {
-        10 => 10,
-        30 => 15,
-        60 => 25,
+        10  => 10,
+        30  => 15,
+        60  => 25,
         180 => 50,
         600 => 100,
       }
@@ -1419,8 +1453,8 @@ result
       map.each do |minutes, count|
         already_sent = Ticket::Article.where(
           ticket_id: id,
-          sender: Ticket::Article::Sender.find_by(name: 'System'),
-          type: Ticket::Article::Type.find_by(name: 'email'),
+          sender:    Ticket::Article::Sender.find_by(name: 'System'),
+          type:      Ticket::Article::Type.find_by(name: 'email'),
         ).where('ticket_articles.created_at > ? AND ticket_articles.to LIKE ?', Time.zone.now - minutes.minutes, "%#{recipient_email.strip}%").count
         next if already_sent < count
 
@@ -1431,9 +1465,9 @@ result
       next if skip
 
       map = {
-        10 => 30,
-        30 => 60,
-        60 => 120,
+        10  => 30,
+        30  => 60,
+        60  => 120,
         180 => 240,
         600 => 360,
       }
@@ -1441,7 +1475,7 @@ result
       map.each do |minutes, count|
         already_sent = Ticket::Article.where(
           sender: Ticket::Article::Sender.find_by(name: 'System'),
-          type: Ticket::Article::Type.find_by(name: 'email'),
+          type:   Ticket::Article::Type.find_by(name: 'email'),
         ).where('ticket_articles.created_at > ? AND ticket_articles.to LIKE ?', Time.zone.now - minutes.minutes, "%#{recipient_email.strip}%").count
         next if already_sent < count
 
@@ -1480,31 +1514,29 @@ result
     # get subject
     subject = NotificationFactory::Mailer.template(
       templateInline: value['subject'],
-      locale: 'en-en',
-      objects: objects,
-      quote: false,
+      objects:        objects,
+      quote:          false,
     )
     subject = subject_build(subject)
 
     body = NotificationFactory::Mailer.template(
       templateInline: value['body'],
-      locale: 'en-en',
-      objects: objects,
-      quote: true,
+      objects:        objects,
+      quote:          true,
     )
 
     (body, attachments_inline) = HtmlSanitizer.replace_inline_images(body, id)
 
     message = Ticket::Article.create(
-      ticket_id: id,
-      to: recipient_string,
-      subject: subject,
-      content_type: 'text/html',
-      body: body,
-      internal: false,
-      sender: Ticket::Article::Sender.find_by(name: 'System'),
-      type: Ticket::Article::Type.find_by(name: 'email'),
-      preferences: {
+      ticket_id:     id,
+      to:            recipient_string,
+      subject:       subject,
+      content_type:  'text/html',
+      body:          body,
+      internal:      value['internal'] || false, # default to public if value was not set
+      sender:        Ticket::Article::Sender.find_by(name: 'System'),
+      type:          Ticket::Article::Type.find_by(name: 'email'),
+      preferences:   {
         perform_origin: perform_origin,
       },
       updated_by_id: 1,
@@ -1513,12 +1545,18 @@ result
 
     attachments_inline.each do |attachment|
       Store.add(
-        object: 'Ticket::Article',
-        o_id: message.id,
-        data: attachment[:data],
-        filename: attachment[:filename],
+        object:      'Ticket::Article',
+        o_id:        message.id,
+        data:        attachment[:data],
+        filename:    attachment[:filename],
         preferences: attachment[:preferences],
       )
+    end
+
+    original_article = objects[:article]
+    if original_article&.should_clone_inline_attachments? # rubocop:disable Style/GuardClause
+      original_article.clone_attachments('Ticket::Article', message.id, only_inline_attachments: true)
+      original_article.should_clone_inline_attachments = false # cancel the temporary flag after cloning
     end
   end
 
@@ -1538,6 +1576,11 @@ result
       owner_id
     when 'ticket_agents'
       User.group_access(group_id, 'full').sort_by(&:login)
+    when /\Auserid_(\d+)\z/
+      return $1 if User.exists?($1)
+
+      logger.warn "Can't find configured Trigger SMS recipient User with ID '#{$1}'"
+      nil
     else
       logger.error "Unknown sms notification recipient '#{recipient}'"
       nil
@@ -1548,6 +1591,7 @@ result
     Array(value['recipient'])
       .each_with_object([]) { |recipient_type, sum| sum.concat(Array(sms_recipients_by_type(recipient_type, article))) }
       .map { |user_or_id| User.lookup(id: user_or_id) }
+      .uniq(&:id)
       .select { |user| user.mobile.present? }
   end
 
@@ -1571,24 +1615,25 @@ result
     end
 
     objects = build_notification_template_objects(article)
-    body = NotificationFactory::Renderer.new(objects, 'en-en', value['body'], false)
-                                        .render
-                                        .html2text
-                                        .tr(' ', ' ') # convert non-breaking space to simple space
+    body = NotificationFactory::Renderer.new(
+      objects:  objects,
+      template: value['body'],
+      escape:   false
+    ).render.html2text.tr(' ', ' ') # convert non-breaking space to simple space
 
     # attributes content_type is not needed for SMS
-    article = Ticket::Article.create(
-      ticket_id:   id,
-      subject:     'SMS notification',
-      to:          sms_recipients_to,
-      body:        body,
-      internal:    true,
-      sender:      Ticket::Article::Sender.find_by(name: 'System'),
-      type:        Ticket::Article::Type.find_by(name: 'sms'),
-      preferences: {
+    Ticket::Article.create(
+      ticket_id:     id,
+      subject:       'SMS notification',
+      to:            sms_recipients_to,
+      body:          body,
+      internal:      value['internal'] || false, # default to public if value was not set
+      sender:        Ticket::Article::Sender.find_by(name: 'System'),
+      type:          Ticket::Article::Type.find_by(name: 'sms'),
+      preferences:   {
         perform_origin: perform_origin,
         sms_recipients: sms_recipients.map(&:mobile),
-        channel_id: channel.id,
+        channel_id:     channel.id,
       },
       updated_by_id: 1,
       created_by_id: 1,

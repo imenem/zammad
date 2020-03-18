@@ -29,12 +29,12 @@ class LongPollingController < ApplicationController
       Sessions.create(client_id, session_data, { type: 'ajax' })
     elsif data['event']
       message = Sessions::Event.run(
-        event: data['event'],
-        payload: data,
-        session: session_data,
+        event:     data['event'],
+        payload:   data,
+        session:   session_data,
         client_id: client_id,
-        clients: {},
-        options: {},
+        clients:   {},
+        options:   {},
       )
       if message
         Sessions.send(client_id, message)
@@ -89,7 +89,7 @@ class LongPollingController < ApplicationController
           return
         end
       end
-    rescue => e
+    rescue
       raise Exceptions::UnprocessableEntity, 'Invalid client_id in receive loop!'
     end
   end

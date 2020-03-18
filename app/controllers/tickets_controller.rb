@@ -24,7 +24,7 @@ class TicketsController < ApplicationController
     end
 
     access_condition = Ticket.access_condition(current_user, 'read')
-    tickets = Ticket.where(access_condition).order(id: 'ASC').offset(offset).limit(per_page)
+    tickets = Ticket.where(access_condition).order(id: :asc).offset(offset).limit(per_page)
 
     if response_expand?
       list = []
@@ -44,7 +44,7 @@ class TicketsController < ApplicationController
       end
       render json: {
         record_ids: item_ids,
-        assets: assets,
+        assets:     assets,
       }, status: :ok
       return
     end
@@ -97,21 +97,22 @@ class TicketsController < ApplicationController
 
     # try to create customer if needed
     if clean_params[:customer_id].present? && clean_params[:customer_id] =~ /^guess:(.+?)$/
-      email = $1
-      if email !~ /@/ || email =~ /(>|<|\||\!|"|§|'|\$|%|&|\(|\)|\?|\s)/
-        render json: { error: 'Invalid email of customer' }, status: :unprocessable_entity
+      email_address = $1
+      email_address_validation = EmailAddressValidation.new(email_address)
+      if !email_address_validation.valid_format?
+        render json: { error: "Invalid email '#{email_address}' of customer" }, status: :unprocessable_entity
         return
       end
-      local_customer = User.find_by(email: email.downcase)
+      local_customer = User.find_by(email: email_address.downcase)
       if !local_customer
         role_ids = Role.signup_role_ids
         local_customer = User.create(
           firstname: '',
-          lastname: '',
-          email: email,
-          password: '',
-          active: true,
-          role_ids: role_ids,
+          lastname:  '',
+          email:     email_address,
+          password:  '',
+          active:    true,
+          role_ids:  role_ids,
         )
       end
       clean_params[:customer_id] = local_customer.id
@@ -186,10 +187,10 @@ class TicketsController < ApplicationController
 
           object_ids.each do |local_object_id|
             link = Link.add(
-              link_type: link_type,
-              link_object_target: target_object,
+              link_type:                link_type,
+              link_object_target:       target_object,
               link_object_target_value: local_object_id,
-              link_object_source: 'Ticket',
+              link_object_source:       'Ticket',
               link_object_source_value: ticket.id,
             )
           end
@@ -227,6 +228,9 @@ class TicketsController < ApplicationController
 
     # only apply preferences changes (keep not updated keys/values)
     clean_params = ticket.param_preferences_merge(clean_params)
+
+    # disable changes on ticket number
+    clean_params.delete('number')
 
     # overwrite params
     if !current_user.permissions?('ticket.agent')
@@ -280,8 +284,9 @@ class TicketsController < ApplicationController
 
     # return result
     result = Ticket::ScreenOptions.list_by_customer(
-      customer_id: params[:customer_id],
-      limit: 15,
+      current_user: current_user,
+      customer_id:  params[:customer_id],
+      limit:        15,
     )
     render json: result
   end
@@ -294,10 +299,7 @@ class TicketsController < ApplicationController
     access!(ticket, 'read')
 
     # get history of ticket
-    history = ticket.history_get(true)
-
-    # return result
-    render json: history
+    render json: ticket.history_get(true)
   end
 
   # GET /api/v1/ticket_related/1
@@ -312,11 +314,11 @@ class TicketsController < ApplicationController
     ticket_lists = Ticket
                    .where(
                      customer_id: ticket.customer_id,
-                     state_id: Ticket::State.by_category(:open)
+                     state_id:    Ticket::State.by_category(:open).pluck(:id),
                    )
                    .where(access_condition)
                    .where('id != ?', [ ticket.id ])
-                   .order('created_at DESC')
+                   .order(created_at: :desc)
                    .limit(6)
 
     # if we do not have open related tickets, search for any tickets
@@ -325,11 +327,11 @@ class TicketsController < ApplicationController
                      .where(
                        customer_id: ticket.customer_id,
                      ).where.not(
-                       state_id: Ticket::State.by_category(:merged)
+                       state_id: Ticket::State.by_category(:merged).pluck(:id),
                      )
                      .where(access_condition)
                      .where('id != ?', [ ticket.id ])
-                     .order('created_at DESC')
+                     .order(created_at: :desc)
                      .limit(6)
     end
 
@@ -353,9 +355,21 @@ class TicketsController < ApplicationController
 
     # return result
     render json: {
-      assets: assets,
-      ticket_ids_by_customer: ticket_ids_by_customer,
+      assets:                   assets,
+      ticket_ids_by_customer:   ticket_ids_by_customer,
       ticket_ids_recent_viewed: ticket_ids_recent_viewed,
+    }
+  end
+
+  # GET /api/v1/ticket_recent
+  def ticket_recent
+    ticket_ids = RecentView.list(current_user, 10, Ticket.name).map(&:o_id)
+    tickets    = ticket_ids.map { |elem| Ticket.lookup(id: elem) }
+    assets     = ApplicationModel::CanAssets.reduce(tickets)
+
+    render json: {
+      assets:                   assets,
+      ticket_ids_recent_viewed: ticket_ids
     }
   end
 
@@ -366,7 +380,7 @@ class TicketsController < ApplicationController
     ticket_master = Ticket.find_by(number: params[:master_ticket_number])
     if !ticket_master
       render json: {
-        result: 'failed',
+        result:  'failed',
         message: 'No such master ticket number!',
       }
       return
@@ -377,7 +391,7 @@ class TicketsController < ApplicationController
     ticket_slave = Ticket.find_by(id: params[:slave_ticket_id])
     if !ticket_slave
       render json: {
-        result: 'failed',
+        result:  'failed',
         message: 'No such slave ticket!',
       }
       return
@@ -386,15 +400,15 @@ class TicketsController < ApplicationController
 
     # merge ticket
     ticket_slave.merge_to(
-      ticket_id: ticket_master.id,
+      ticket_id:     ticket_master.id,
       created_by_id: current_user.id,
     )
 
     # return result
     render json: {
-      result: 'success',
+      result:        'success',
       master_ticket: ticket_master.attributes,
-      slave_ticket: ticket_slave.attributes,
+      slave_ticket:  ticket_slave.attributes,
     }
   end
 
@@ -409,7 +423,7 @@ class TicketsController < ApplicationController
     assets = article.assets(assets)
 
     render json: {
-      assets: assets,
+      assets:      assets,
       attachments: article_attachments_clone(article),
     }
   end
@@ -448,12 +462,12 @@ class TicketsController < ApplicationController
 
     # build result list
     tickets = Ticket.search(
-      query: query,
-      condition: params[:condition].to_h,
-      limit: per_page,
-      offset: offset,
-      order_by: params[:order_by],
-      sort_by: params[:sort_by],
+      query:        query,
+      condition:    params[:condition].to_h,
+      limit:        per_page,
+      offset:       offset,
+      order_by:     params[:order_by],
+      sort_by:      params[:sort_by],
       current_user: current_user,
     )
 
@@ -475,9 +489,9 @@ class TicketsController < ApplicationController
 
     # return result
     render json: {
-      tickets: ticket_result,
+      tickets:       ticket_result,
       tickets_count: tickets.count,
-      assets: assets,
+      assets:        assets,
     }
   end
 
@@ -485,7 +499,7 @@ class TicketsController < ApplicationController
   def selector
     permission_check('admin.*')
 
-    ticket_count, tickets = Ticket.selectors(params[:condition], 6)
+    ticket_count, tickets = Ticket.selectors(params[:condition], limit: 6, execution_time: true)
 
     assets = {}
     ticket_ids = []
@@ -496,9 +510,9 @@ class TicketsController < ApplicationController
 
     # return result
     render json: {
-      ticket_ids: ticket_ids,
+      ticket_ids:   ticket_ids,
       ticket_count: ticket_count || 0,
-      assets: assets,
+      assets:       assets,
     }
   end
 
@@ -523,23 +537,23 @@ class TicketsController < ApplicationController
 
       conditions = {
         closed_ids: {
-          'ticket.state_id' => {
+          'ticket.state_id'    => {
             operator: 'is',
-            value: Ticket::State.by_category(:closed).pluck(:id),
+            value:    Ticket::State.by_category(:closed).pluck(:id),
           },
           'ticket.customer_id' => {
             operator: 'is',
-            value: user.id,
+            value:    user.id,
           },
         },
-        open_ids: {
-          'ticket.state_id' => {
+        open_ids:   {
+          'ticket.state_id'    => {
             operator: 'is',
-            value: Ticket::State.by_category(:open).pluck(:id),
+            value:    Ticket::State.by_category(:open).pluck(:id),
           },
           'ticket.customer_id' => {
             operator: 'is',
-            value: user.id,
+            value:    user.id,
           },
         },
       }
@@ -565,23 +579,23 @@ class TicketsController < ApplicationController
 
       conditions = {
         closed_ids: {
-          'ticket.state_id' => {
+          'ticket.state_id'        => {
             operator: 'is',
-            value: Ticket::State.by_category(:closed).pluck(:id),
+            value:    Ticket::State.by_category(:closed).pluck(:id),
           },
           'ticket.organization_id' => {
             operator: 'is',
-            value: organization.id,
+            value:    organization.id,
           },
         },
-        open_ids: {
-          'ticket.state_id' => {
+        open_ids:   {
+          'ticket.state_id'        => {
             operator: 'is',
-            value: Ticket::State.by_category(:open).pluck(:id),
+            value:    Ticket::State.by_category(:open).pluck(:id),
           },
           'ticket.organization_id' => {
             operator: 'is',
-            value: organization.id,
+            value:    organization.id,
           },
         },
       }
@@ -598,9 +612,9 @@ class TicketsController < ApplicationController
 
     # return result
     render json: {
-      user: user_tickets,
+      user:         user_tickets,
       organization: org_tickets,
-      assets: assets,
+      assets:       assets,
     }
   end
 
@@ -619,8 +633,8 @@ class TicketsController < ApplicationController
     )
     send_data(
       csv_string,
-      filename: 'example.csv',
-      type: 'text/csv',
+      filename:    'example.csv',
+      type:        'text/csv',
       disposition: 'attachment'
     )
 
@@ -648,11 +662,11 @@ class TicketsController < ApplicationController
     raise Exceptions::UnprocessableEntity, 'No source data submitted!' if string.blank?
 
     result = Ticket.csv_import(
-      string: string,
+      string:       string,
       parse_params: {
         col_sep: params[:col_sep] || ',',
       },
-      try: params[:try],
+      try:          params[:try],
     )
     render json: result, status: :ok
   end
@@ -662,10 +676,11 @@ class TicketsController < ApplicationController
   def follow_up_possible_check
     ticket = Ticket.find(params[:id])
 
+    return true if current_user.permissions?('ticket.agent') # agents can always reopen tickets, regardless of group configuration
     return true if ticket.group.follow_up_possible != 'new_ticket' # check if the setting for follow_up_possible is disabled
     return true if ticket.state.name != 'closed' # check if the ticket state is already closed
 
-    raise Exceptions::UnprocessableEntity, 'Cannot follow up on a closed ticket. Please create a new ticket.'
+    raise Exceptions::UnprocessableEntity, 'Cannot follow-up on a closed ticket. Please create a new ticket.'
   end
 
   def ticket_all(ticket)
@@ -693,29 +708,23 @@ class TicketsController < ApplicationController
 
     # get links
     links = Link.list(
-      link_object: 'Ticket',
+      link_object:       'Ticket',
       link_object_value: ticket.id,
     )
-    link_list = []
-    links.each do |item|
-      link_list.push item
-      if item['link_object'] == 'Ticket'
-        linked_ticket = Ticket.lookup(id: item['link_object_value'])
-        assets = linked_ticket.assets(assets)
-      end
-    end
+
+    assets = Link.reduce_assets(assets, links)
 
     # get tags
     tags = ticket.tag_list
 
     # return result
     {
-      ticket_id: ticket.id,
+      ticket_id:          ticket.id,
       ticket_article_ids: article_ids,
-      assets: assets,
-      links: link_list,
-      tags: tags,
-      form_meta: attributes_to_change[:form_meta],
+      assets:             assets,
+      links:              links,
+      tags:               tags,
+      form_meta:          attributes_to_change[:form_meta],
     }
   end
 

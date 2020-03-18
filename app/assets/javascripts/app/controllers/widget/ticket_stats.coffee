@@ -18,7 +18,7 @@ class App.TicketStats extends App.Controller
     else if @organization
       @subscribeIdOrganization = App.Organization.full(@organization.id, @load, false, true)
 
-    # rerender view, e. g. on langauge change
+    # rerender view, e.g. on language change
     @bind 'ui:rerender', =>
       return if !@authenticateCheck()
       @render()
@@ -160,10 +160,15 @@ class App.TicketStatsList extends App.Controller
     else
       ticket_ids_show = @ticket_ids
 
+    tickets = (App.Ticket.fullLocal(id) for id in ticket_ids_show)
+
     @html App.view('widget/ticket_stats_list')(
       user:            @user
       head:            @head
       iconClass:       @iconClass
+      ticketList:      App.view('generic/ticket_list')(
+        tickets: tickets
+      )
       ticket_ids:      @ticket_ids
       ticket_ids_show: ticket_ids_show
       limit:           @limit

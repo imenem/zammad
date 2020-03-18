@@ -1,7 +1,7 @@
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["agent"] = function (__obj) {
+window.zammadChatTemplates["agent"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -68,8 +68,11 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
   var Base, Io, Log, Timeout, ZammadChat, myScript, scriptHost, scriptProtocol, scripts;
   scripts = document.getElementsByTagName('script');
   myScript = scripts[scripts.length - 1];
-  scriptHost = myScript.src.match('.*://([^:/]*).*')[1];
-  scriptProtocol = myScript.src.match('(.*)://[^:/]*.*')[1];
+  scriptProtocol = window.location.protocol.replace(':', '');
+  if (myScript && myScript.src) {
+    scriptHost = myScript.src.match('.*://([^:/]*).*')[1];
+    scriptProtocol = myScript.src.match('(.*)://[^:/]*.*')[1];
+  }
   Base = (function() {
     Base.prototype.defaults = {
       debug: false
@@ -339,7 +342,15 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
       inactiveTimeout: 8,
       inactiveTimeoutIntervallCheck: 0.5,
       waitingListTimeout: 4,
-      waitingListTimeoutIntervallCheck: 0.5
+      waitingListTimeoutIntervallCheck: 0.5,
+      onReady: void 0,
+      onCloseAnimationEnd: void 0,
+      onError: void 0,
+      onOpenAnimationEnd: void 0,
+      onConnectionReestablished: void 0,
+      onSessionClosed: void 0,
+      onConnectionEstablished: void 0,
+      onCssLoaded: void 0
     };
 
     ZammadChat.prototype.logPrefix = 'chat';
@@ -367,6 +378,24 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
     ZammadChat.prototype.initialQueueDelay = 10000;
 
     ZammadChat.prototype.translations = {
+      'da': {
+        '<strong>Chat</strong> with us!': '<strong>Chat</strong> med os!',
+        'Scroll down to see new messages': 'Scroll ned for at se nye beskeder',
+        'Online': 'Online',
+        'Offline': 'Offline',
+        'Connecting': 'Forbinder',
+        'Connection re-established': 'Forbindelse genoprettet',
+        'Today': 'I dag',
+        'Send': 'Send',
+        'Chat closed by %s': 'Chat lukket af %s',
+        'Compose your message...': 'Skriv en besked...',
+        'All colleagues are busy.': 'Alle kollegaer er optaget.',
+        'You are on waiting list position <strong>%s</strong>.': 'Du er i venteliste som nummer <strong>%s</strong>.',
+        'Start new conversation': 'Start en ny samtale',
+        'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Da du ikke har svaret i de sidste %s minutter er din samtale med <strong>%s</strong> blevet lukket.',
+        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Da du ikke har svaret i de sidste %s minutter er din samtale blevet lukket.',
+        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Vi beklager, det tager længere end forventet at få en ledig plads. Prøv venligst igen senere eller send os en e-mail. På forhånd tak!'
+      },
       'de': {
         '<strong>Chat</strong> with us!': '<strong>Chatte</strong> mit uns!',
         'Scroll down to see new messages': 'Scrolle nach unten um neue Nachrichten zu sehen',
@@ -402,6 +431,24 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
         'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Puesto que usted no respondió en los últimos %s minutos su conversación con <strong>%s</strong> se ha cerrado.',
         'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Puesto que usted no respondió en los últimos %s minutos su conversación se ha cerrado.',
         'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Lo sentimos, se tarda más tiempo de lo esperado para ser atendido por un agente. Inténtelo de nuevo más tarde o envíenos un correo electrónico. ¡Gracias!'
+      },
+      'fi': {
+        '<strong>Chat</strong> with us!': '<strong>Keskustele</strong> kanssamme!',
+        'Scroll down to see new messages': 'Rullaa alas nähdäksesi uudet viestit',
+        'Online': 'Paikalla',
+        'Offline': 'Poissa',
+        'Connecting': 'Yhdistetään',
+        'Connection re-established': 'Yhteys muodostettu uudelleen',
+        'Today': 'Tänään',
+        'Send': 'Lähetä',
+        'Chat closed by %s': '%s sulki keskustelun',
+        'Compose your message...': 'Luo viestisi...',
+        'All colleagues are busy.': 'Kaikki kollegat ovat varattuja.',
+        'You are on waiting list position <strong>%s</strong>.': 'Olet odotuslistalla sijalla <strong>%s</strong>.',
+        'Start new conversation': 'Aloita uusi keskustelu',
+        'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Koska et vastannut viimeiseen %s minuuttiin, keskustelusi <strong>%s</strong> kanssa suljettiin.',
+        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Koska et vastannut viimeiseen %s minuuttiin, keskustelusi suljettiin.',
+        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Olemme pahoillamme, tyhjän paikan vapautumisessa kestää odotettua pidempään. Ole hyvä ja yritä myöhemmin uudestaan tai lähetä meille sähköpostia. Kiitos!'
       },
       'fr': {
         '<strong>Chat</strong> with us!': '<strong>Chattez</strong> avec nous!',
@@ -528,6 +575,24 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
         'Since you didn\'t respond in the last %s minutes your conversation with %s got closed.': 'Поскольку вы не отвечали в течение последних %s минут, ваш разговор с %s был закрыт.',
         'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Поскольку вы не отвечали в течение последних %s минут, ваш разговор был закрыт.',
         'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'К сожалению, ожидание свободного места требует больше времени. Повторите попытку позже или отправьте нам электронное письмо. Спасибо!'
+      },
+      'sv': {
+        '<strong>Chat</strong> with us!': '<strong>Chatta</strong> med oss!',
+        'Scroll down to see new messages': 'Rulla ner för att se nya meddelanden',
+        'Online': 'Online',
+        'Offline': 'Offline',
+        'Connecting': 'Ansluter',
+        'Connection re-established': 'Anslutningen återupprättas',
+        'Today': 'I dag',
+        'Send': 'Skicka',
+        'Chat closed by %s': 'Chatt stängd av %s',
+        'Compose your message...': 'Skriv ditt meddelande...',
+        'All colleagues are busy.': 'Alla kollegor är upptagna.',
+        'You are on waiting list position <strong>%s</strong>.': 'Du är på väntelistan som position <strong>%s</strong>.',
+        'Start new conversation': 'Starta ny konversation',
+        'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Eftersom du inte svarat inom %s minuterna i din konversation med <strong>%s</strong> så stängdes chatten.',
+        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Då du inte svarat inom de senaste %s minuterna så avslutades din chatt.',
+        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Vi är ledsna, det tar längre tid som förväntat att få en ledig plats. Försök igen senare eller skicka ett e-postmeddelande till oss. Tack!'
       }
     };
 
@@ -993,6 +1058,9 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
           case 'chat_session_left':
             this.onSessionClosed(pipe.data);
             break;
+          case 'chat_session_notice':
+            this.addStatus(this.T(pipe.data.message));
+            break;
           case 'chat_status_customer':
             switch (pipe.data.state) {
               case 'online':
@@ -1020,27 +1088,33 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
     };
 
     ZammadChat.prototype.onReady = function() {
+      var base;
       this.log.debug('widget ready for use');
       $("." + this.options.buttonClass).click(this.open).removeClass(this.inactiveClass);
+      if (typeof (base = this.options).onReady === "function") {
+        base.onReady();
+      }
       if (this.options.show) {
         return this.show();
       }
     };
 
     ZammadChat.prototype.onError = function(message) {
+      var base;
       this.log.debug(message);
       this.addStatus(message);
       $("." + this.options.buttonClass).hide();
       if (this.isOpen) {
         this.disableInput();
-        return this.destroy({
+        this.destroy({
           remove: false
         });
       } else {
-        return this.destroy({
+        this.destroy({
           remove: true
         });
       }
+      return typeof (base = this.options).onError === "function" ? base.onError(message) : void 0;
     };
 
     ZammadChat.prototype.onReopenSession = function(data) {
@@ -1167,6 +1241,7 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
       }
       this.isOpen = true;
       this.log.debug('open widget');
+      this.show();
       if (!this.sessionId) {
         this.showLoader();
       }
@@ -1187,10 +1262,12 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
     };
 
     ZammadChat.prototype.onOpenAnimationEnd = function() {
+      var base;
       this.idleTimeout.stop();
       if (this.isFullscreen) {
-        return this.disableScrollOnRoot();
+        this.disableScrollOnRoot();
       }
+      return typeof (base = this.options).onOpenAnimationEnd === "function" ? base.onOpenAnimationEnd() : void 0;
     };
 
     ZammadChat.prototype.sessionClose = function() {
@@ -1242,6 +1319,7 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
     };
 
     ZammadChat.prototype.onCloseAnimationEnd = function() {
+      var base;
       this.el.css('bottom', '');
       this.el.removeClass('zammad-chat-is-open');
       this.showLoader();
@@ -1249,6 +1327,9 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
       this.el.find('.zammad-chat-agent').addClass('zammad-chat-is-hidden');
       this.el.find('.zammad-chat-agent-status').addClass('zammad-chat-is-hidden');
       this.isOpen = false;
+      if (typeof (base = this.options).onCloseAnimationEnd === "function") {
+        base.onCloseAnimationEnd();
+      }
       return this.io.reconnect();
     };
 
@@ -1444,16 +1525,20 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
     };
 
     ZammadChat.prototype.onConnectionReestablished = function() {
+      var base;
       this.lastAddedType = 'status';
       this.setAgentOnlineState('online');
-      return this.addStatus(this.T('Connection re-established'));
+      this.addStatus(this.T('Connection re-established'));
+      return typeof (base = this.options).onConnectionReestablished === "function" ? base.onConnectionReestablished() : void 0;
     };
 
     ZammadChat.prototype.onSessionClosed = function(data) {
+      var base;
       this.addStatus(this.T('Chat closed by %s', data.realname));
       this.disableInput();
       this.setAgentOnlineState('offline');
-      return this.inactiveTimeout.stop();
+      this.inactiveTimeout.stop();
+      return typeof (base = this.options).onSessionClosed === "function" ? base.onSessionClosed(data) : void 0;
     };
 
     ZammadChat.prototype.setSessionId = function(id) {
@@ -1466,6 +1551,7 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
     };
 
     ZammadChat.prototype.onConnectionEstablished = function(data) {
+      var base;
       if (this.onInitialQueueDelayId) {
         clearTimeout(this.onInitialQueueDelayId);
       }
@@ -1491,7 +1577,8 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
       this.setAgentOnlineState('online');
       this.waitingListTimeout.stop();
       this.idleTimeout.stop();
-      return this.inactiveTimeout.start();
+      this.inactiveTimeout.start();
+      return typeof (base = this.options).onConnectionEstablished === "function" ? base.onConnectionEstablished(data) : void 0;
     };
 
     ZammadChat.prototype.showCustomerTimeout = function() {
@@ -1562,10 +1649,12 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
     };
 
     ZammadChat.prototype.onCssLoaded = function() {
+      var base;
       this.cssLoaded = true;
       if (this.socketReady) {
-        return this.onReady();
+        this.onReady();
       }
+      return typeof (base = this.options).onCssLoaded === "function" ? base.onCssLoaded() : void 0;
     };
 
     ZammadChat.prototype.startTimeoutObservers = function() {
@@ -1902,7 +1991,7 @@ var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); 
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["chat"] = function (__obj) {
+window.zammadChatTemplates["chat"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -1993,7 +2082,7 @@ window.zammadChatTemplates["chat"] = function (__obj) {
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["customer_timeout"] = function (__obj) {
+window.zammadChatTemplates["customer_timeout"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -2066,7 +2155,7 @@ window.zammadChatTemplates["customer_timeout"] = function (__obj) {
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["loader"] = function (__obj) {
+window.zammadChatTemplates["loader"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -2121,7 +2210,7 @@ window.zammadChatTemplates["loader"] = function (__obj) {
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["message"] = function (__obj) {
+window.zammadChatTemplates["message"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -2188,7 +2277,7 @@ window.zammadChatTemplates["message"] = function (__obj) {
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["status"] = function (__obj) {
+window.zammadChatTemplates["status"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -2243,7 +2332,7 @@ window.zammadChatTemplates["status"] = function (__obj) {
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["timestamp"] = function (__obj) {
+window.zammadChatTemplates["timestamp"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -2302,7 +2391,7 @@ window.zammadChatTemplates["timestamp"] = function (__obj) {
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["typingIndicator"] = function (__obj) {
+window.zammadChatTemplates["typingIndicator"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -2353,7 +2442,7 @@ window.zammadChatTemplates["typingIndicator"] = function (__obj) {
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["waiting"] = function (__obj) {
+window.zammadChatTemplates["waiting"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;
@@ -2412,7 +2501,7 @@ window.zammadChatTemplates["waiting"] = function (__obj) {
 if (!window.zammadChatTemplates) {
   window.zammadChatTemplates = {};
 }
-window.zammadChatTemplates["waiting_list_timeout"] = function (__obj) {
+window.zammadChatTemplates["waiting_list_timeout"] = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
     var out = __out, result;

@@ -14,24 +14,24 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
   let!(:organization) do
     create(
       :organization,
-      name: 'Rest Org #1',
-      note: 'Rest Org #1',
+      name:       'Rest Org #1',
+      note:       'Rest Org #1',
       created_at: '2017-09-05 10:00:00',
     )
   end
   let!(:organization2) do
     create(
       :organization,
-      name: 'Rest Org #2',
-      note: 'Rest Org #2',
+      name:       'Rest Org #2',
+      note:       'Rest Org #2',
       created_at: '2017-09-05 11:00:00',
     )
   end
   let!(:organization3) do
     create(
       :organization,
-      name: 'Rest Org #3',
-      note: 'Rest Org #3',
+      name:       'Rest Org #3',
+      note:       'Rest Org #3',
       created_at: '2017-09-05 12:00:00',
     )
   end
@@ -39,7 +39,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
     create(:customer_user, organization: organization)
   end
 
-  before(:each) do
+  before do
     configure_elasticsearch do
 
       travel 1.minute
@@ -60,13 +60,13 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       # index
       authenticated_as(agent_user)
       get '/api/v1/organizations', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response[0]['member_ids']).to be_a_kind_of(Array)
       expect(json_response.length >= 3).to be_truthy
 
       get '/api/v1/organizations?limit=40&page=1&per_page=2', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       organizations = Organization.order(:id).limit(2)
       expect(json_response[0]['id']).to eq(organizations[0].id)
@@ -76,7 +76,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response.count).to eq(2)
 
       get '/api/v1/organizations?limit=40&page=2&per_page=2', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       organizations = Organization.order(:id).limit(4)
       expect(json_response[0]['id']).to eq(organizations[2].id)
@@ -88,14 +88,14 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
 
       # show/:id
       get "/api/v1/organizations/#{organization.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['member_ids']).to be_a_kind_of(Array)
       expect(json_response['members']).to be_falsey
       expect('Rest Org #1').to eq(json_response['name'])
 
       get "/api/v1/organizations/#{organization2.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['member_ids']).to be_a_kind_of(Array)
       expect(json_response['members']).to be_falsey
@@ -104,26 +104,29 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       # search as agent
       Scheduler.worker(true)
       get "/api/v1/organizations/search?query=#{CGI.escape('Zammad')}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
-      expect(json_response[0]['name']).to eq('Zammad Foundation')
-      expect(json_response[0]['member_ids']).to be_truthy
-      expect(json_response[0]['members']).to be_falsey
+      organization = json_response.detect { |object| object['name'] == 'Zammad Foundation' }
+      expect(organization['name']).to eq('Zammad Foundation')
+      expect(organization['member_ids']).to be_truthy
+      expect(organization['members']).to be_falsey
 
       get "/api/v1/organizations/search?query=#{CGI.escape('Zammad')}&expand=true", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
-      expect(json_response[0]['name']).to eq('Zammad Foundation')
-      expect(json_response[0]['member_ids']).to be_truthy
-      expect(json_response[0]['members']).to be_truthy
+      organization = json_response.detect { |object| object['name'] == 'Zammad Foundation' }
+      expect(organization['name']).to eq('Zammad Foundation')
+      expect(organization['member_ids']).to be_truthy
+      expect(organization['members']).to be_truthy
 
       get "/api/v1/organizations/search?query=#{CGI.escape('Zammad')}&label=true", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
-      expect(json_response[0]['label']).to eq('Zammad Foundation')
-      expect(json_response[0]['value']).to eq('Zammad Foundation')
-      expect(json_response[0]['member_ids']).to be_falsey
-      expect(json_response[0]['members']).to be_falsey
+      organization = json_response.detect { |object| object['label'] == 'Zammad Foundation' }
+      expect(organization['label']).to eq('Zammad Foundation')
+      expect(organization['value']).to eq('Zammad Foundation')
+      expect(organization['member_ids']).to be_falsey
+      expect(organization['members']).to be_falsey
     end
 
     it 'does index with customer1' do
@@ -131,25 +134,25 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       # index
       authenticated_as(customer_user)
       get '/api/v1/organizations', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response.length).to eq(0)
 
       # show/:id
       get "/api/v1/organizations/#{organization.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to be_nil
 
       get "/api/v1/organizations/#{organization2.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to be_nil
 
       # search
       Scheduler.worker(true)
       get "/api/v1/organizations/search?query=#{CGI.escape('Zammad')}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
     end
 
     it 'does index with customer2' do
@@ -157,59 +160,59 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       # index
       authenticated_as(customer_user2)
       get '/api/v1/organizations', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response.length).to eq(1)
 
       # show/:id
       get "/api/v1/organizations/#{organization.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect('Rest Org #1').to eq(json_response['name'])
 
       get "/api/v1/organizations/#{organization2.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to be_nil
 
       # search
       Scheduler.worker(true)
       get "/api/v1/organizations/search?query=#{CGI.escape('Zammad')}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
     end
 
     it 'does organization search sortable' do
       authenticated_as(admin_user)
       get "/api/v1/organizations/search?query=#{CGI.escape('Rest Org')}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       result = json_response
       result.collect! { |v| v['id'] }
       expect(result).to be_a_kind_of(Array)
       expect(result).to eq([ organization.id, organization3.id, organization2.id ])
 
       get "/api/v1/organizations/search?query=#{CGI.escape('Rest Org')}", params: { sort_by: 'created_at', order_by: 'asc' }, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       result = json_response
       result.collect! { |v| v['id'] }
       expect(result).to be_a_kind_of(Array)
       expect(result).to eq([ organization.id, organization2.id, organization3.id ])
 
       get "/api/v1/organizations/search?query=#{CGI.escape('Rest Org')}", params: { sort_by: 'note', order_by: 'asc' }, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       result = json_response
       result.collect! { |v| v['id'] }
       expect(result).to be_a_kind_of(Array)
       expect(result).to eq([ organization.id, organization2.id, organization3.id ])
 
       get "/api/v1/organizations/search?query=#{CGI.escape('Rest Org')}", params: { sort_by: 'note', order_by: 'desc' }, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       result = json_response
       result.collect! { |v| v['id'] }
       expect(result).to be_a_kind_of(Array)
       expect(result).to eq([ organization3.id, organization2.id, organization.id ])
 
       get "/api/v1/organizations/search?query=#{CGI.escape('Rest Org')}", params: { sort_by: %w[note created_at], order_by: %w[desc asc] }, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       result = json_response
       result.collect! { |v| v['id'] }
       expect(result).to be_a_kind_of(Array)
@@ -219,15 +222,15 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
     it 'does organization show and response format' do
       organization = create(
         :organization,
-        name: 'Rest Org NEW',
-        members: [customer_user],
+        name:          'Rest Org NEW',
+        members:       [customer_user],
         updated_by_id: admin_user.id,
         created_by_id: admin_user.id,
       )
 
       authenticated_as(admin_user)
       get "/api/v1/organizations/#{organization.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['id']).to eq(organization.id)
       expect(json_response['name']).to eq(organization.name)
@@ -237,7 +240,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response['created_by_id']).to eq(admin_user.id)
 
       get "/api/v1/organizations/#{organization.id}?expand=true", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['id']).to eq(organization.id)
       expect(json_response['name']).to eq(organization.name)
@@ -247,7 +250,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response['created_by_id']).to eq(admin_user.id)
 
       get "/api/v1/organizations/#{organization.id}?expand=false", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['id']).to eq(organization.id)
       expect(json_response['name']).to eq(organization.name)
@@ -257,7 +260,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response['created_by_id']).to eq(admin_user.id)
 
       get "/api/v1/organizations/#{organization.id}?full=true", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
 
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['id']).to eq(organization.id)
@@ -270,7 +273,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response['assets']['Organization'][organization.id.to_s]['members']).to be_falsey
 
       get "/api/v1/organizations/#{organization.id}?full=false", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['id']).to eq(organization.id)
       expect(json_response['name']).to eq(organization.name)
@@ -283,15 +286,15 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
     it 'does organization index and response format' do
       organization = create(
         :organization,
-        name: 'Rest Org NEW',
-        members: [customer_user],
+        name:          'Rest Org NEW',
+        members:       [customer_user],
         updated_by_id: admin_user.id,
         created_by_id: admin_user.id,
       )
 
       authenticated_as(admin_user)
       get '/api/v1/organizations', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response[0].class).to eq(Hash)
       expect(json_response.last['id']).to eq(organization.id)
@@ -302,7 +305,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response.last['created_by_id']).to eq(admin_user.id)
 
       get '/api/v1/organizations?expand=true', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response[0].class).to eq(Hash)
       expect(json_response.last['id']).to eq(organization.id)
@@ -313,7 +316,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response.last['created_by_id']).to eq(admin_user.id)
 
       get '/api/v1/organizations?expand=false', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response[0].class).to eq(Hash)
       expect(json_response.last['id']).to eq(organization.id)
@@ -324,7 +327,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response.last['created_by_id']).to eq(admin_user.id)
 
       get '/api/v1/organizations?full=true', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
 
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['record_ids'].class).to eq(Array)
@@ -339,7 +342,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(json_response['assets']['Organization'][organization.id.to_s]['members']).to be_falsey
 
       get '/api/v1/organizations?full=false', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response[0].class).to eq(Hash)
       expect(json_response.last['id']).to eq(organization.id)
@@ -352,13 +355,13 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
 
     it 'does ticket create and response format' do
       params = {
-        name: 'Rest Org NEW',
+        name:    'Rest Org NEW',
         members: [customer_user.login],
       }
 
       authenticated_as(admin_user)
       post '/api/v1/organizations', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
 
       organization = Organization.find(json_response['id'])
@@ -370,7 +373,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
 
       params[:name] = 'Rest Org NEW #2'
       post '/api/v1/organizations?expand=true', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
 
       organization = Organization.find(json_response['id'])
@@ -382,7 +385,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
 
       params[:name] = 'Rest Org NEW #3'
       post '/api/v1/organizations?full=true', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
 
       organization = Organization.find(json_response['id'])
@@ -399,8 +402,8 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
     it 'does ticket update and response formats' do
       organization = create(
         :organization,
-        name: 'Rest Org NEW',
-        members: [customer_user],
+        name:          'Rest Org NEW',
+        members:       [customer_user],
         updated_by_id: admin_user.id,
         created_by_id: admin_user.id,
       )
@@ -410,7 +413,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       }
       authenticated_as(admin_user)
       put "/api/v1/organizations/#{organization.id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
 
       organization = Organization.find(json_response['id'])
@@ -424,7 +427,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
         name: 'a update name #2',
       }
       put "/api/v1/organizations/#{organization.id}?expand=true", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
 
       organization = Organization.find(json_response['id'])
@@ -438,7 +441,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
         name: 'a update name #3',
       }
       put "/api/v1/organizations/#{organization.id}?full=true", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
 
       organization = Organization.find(json_response['id'])
@@ -452,17 +455,33 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
 
     end
 
+    it 'does organization history' do
+      organization1 = create(
+        :organization,
+        name: 'some org',
+      )
+
+      authenticated_as(agent_user)
+      get "/api/v1/organizations/history/#{organization1.id}", params: {}, as: :json
+      expect(response).to have_http_status(:ok)
+      expect(json_response).to be_a_kind_of(Hash)
+      expect(json_response['history'].class).to eq(Array)
+      expect(json_response['assets'].class).to eq(Hash)
+      expect(json_response['assets']['Ticket']).to be_nil
+      expect(json_response['assets']['Organization'][organization1.id.to_s]).not_to be_nil
+    end
+
     it 'does csv example - customer no access' do
       authenticated_as(customer_user)
       get '/api/v1/organizations/import_example', params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('Not authorized (user)!')
     end
 
     it 'does csv example - admin access' do
       authenticated_as(admin_user)
       get '/api/v1/organizations/import_example', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
 
       rows = CSV.parse(@response.body)
       header = rows.shift
@@ -474,7 +493,7 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(header[4]).to eq('domain_assignment')
       expect(header[5]).to eq('active')
       expect(header[6]).to eq('note')
-      expect(header.include?('members')).to be_truthy
+      expect(header).to include('members')
     end
 
     it 'does csv import - admin access' do
@@ -482,44 +501,42 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       UserInfo.current_user_id = 1
       customer1 = create(
         :customer_user,
-        login: 'customer1-members@example.com',
+        login:     'customer1-members@example.com',
         firstname: 'Member',
-        lastname: 'Customer',
-        email: 'customer1-members@example.com',
-        password: 'customerpw',
-        active: true,
+        lastname:  'Customer',
+        email:     'customer1-members@example.com',
+        password:  'customerpw',
+        active:    true,
       )
       customer2 = create(
         :customer_user,
-        login: 'customer2-members@example.com',
+        login:     'customer2-members@example.com',
         firstname: 'Member',
-        lastname: 'Customer',
-        email: 'customer2-members@example.com',
-        password: 'customerpw',
-        active: true,
+        lastname:  'Customer',
+        email:     'customer2-members@example.com',
+        password:  'customerpw',
+        active:    true,
       )
       UserInfo.current_user_id = nil
 
       # invalid file
       authenticated_as(admin_user)
-      csv_file_path = Rails.root.join('test', 'data', 'csv', 'organization_simple_col_not_existing.csv')
-      csv_file = ::Rack::Test::UploadedFile.new(csv_file_path, 'text/csv')
+      csv_file = fixture_file_upload('csv_import/organization/simple_col_not_existing.csv', 'text/csv')
       post '/api/v1/organizations/import?try=true', params: { file: csv_file, col_sep: ';' }
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
 
       expect(json_response['try']).to eq(true)
-      expect(json_response['records'].count).to eq(2)
+      expect(json_response['records']).to be_empty
       expect(json_response['result']).to eq('failed')
       expect(json_response['errors'].count).to eq(2)
       expect(json_response['errors'][0]).to eq("Line 1: Unable to create record - unknown attribute 'name2' for Organization.")
       expect(json_response['errors'][1]).to eq("Line 2: Unable to create record - unknown attribute 'name2' for Organization.")
 
       # valid file try
-      csv_file_path = Rails.root.join('test', 'data', 'csv', 'organization_simple.csv')
-      csv_file = ::Rack::Test::UploadedFile.new(csv_file_path, 'text/csv')
+      csv_file = fixture_file_upload('csv_import/organization/simple.csv', 'text/csv')
       post '/api/v1/organizations/import?try=true', params: { file: csv_file, col_sep: ';' }
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
 
       expect(json_response['try']).to eq(true)
@@ -530,10 +547,9 @@ RSpec.describe 'Organization', type: :request, searchindex: true do
       expect(Organization.find_by(name: 'organization-member-import2')).to be_nil
 
       # valid file
-      csv_file_path = Rails.root.join('test', 'data', 'csv', 'organization_simple.csv')
-      csv_file = ::Rack::Test::UploadedFile.new(csv_file_path, 'text/csv')
+      csv_file = fixture_file_upload('csv_import/organization/simple.csv', 'text/csv')
       post '/api/v1/organizations/import', params: { file: csv_file, col_sep: ';' }
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
 
       expect(json_response['try']).to eq(false)

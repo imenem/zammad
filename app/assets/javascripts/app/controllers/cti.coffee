@@ -5,8 +5,9 @@ class App.CTI extends App.Controller
   elements:
     '.js-callerLog': 'callerLog'
   events:
-    'click .js-check': 'done'
-    'click .js-userNew': 'userNew'
+    'click .js-check':    'done'
+    'click .js-checkAll': 'doneAll'
+    'click .js-newUser':  'newUser'
   list: []
   backends: []
   meta:
@@ -32,8 +33,29 @@ class App.CTI extends App.Controller
       return if data.state isnt 'newCall'
       return if data.direction isnt 'in'
       return if @switch() isnt true
-      @notify(data)
+      if !document.hasFocus()
+        @notify(data)
       'cti_event'
+    )
+    @bind('menu:render', (data) =>
+      return if @switch() isnt true
+      localHtml = ''
+      for item in @ringingCalls()
+        localHtml += App.view('navigation/menu_cti_ringing')(
+          item: item
+        )
+      $('.js-phoneMenuItem').after(localHtml)
+      $('.call-widget').find('.js-newUser').bind('click', (e) =>
+        @newUser(e)
+      )
+      $('.call-widget').find('.js-newTicket').bind('click', (e) =>
+        user = undefined
+        user_id = $(e.currentTarget).data('user-id')
+        if user_id
+          user = App.User.find(user_id)
+        console.log('user_id', user_id, user)
+        @newTicket(user)
+      )
     )
     @bind('auth', (data) =>
       @meta.counter = 0
@@ -56,6 +78,13 @@ class App.CTI extends App.Controller
         return
       @initSpoolSent = true
     )
+
+  ringingCalls: =>
+    ringing = []
+    for row in @list
+      if row.state is 'newCall' && row.done is false
+        ringing.push row
+    ringing
 
   # fetch data, render view
   load: ->
@@ -148,24 +177,54 @@ class App.CTI extends App.Controller
         item.disabled = false
 
     @removePopovers()
-    @callerLog.html(App.view('cti/caller_log')(list: @list))
-    @renderPopovers()
+
+    list = $(App.view('cti/caller_log')(list: @list))
+    list.find('.js-avatar').each( ->
+      $element = $(@)
+      new WidgetAvatar(
+        el:        $element
+        object_id: $element.attr('data-id')
+        level:     $element.attr('data-level')
+        size:      40
+      )
+    )
+    @callerLog.html(list)
 
     @updateNavMenu()
 
+  doneAll: =>
+
+    # get id's of all unchecked caller logs
+    @logIds = $('.js-callerLog').map(->
+      return $(@).data('id') if !$(@).find('.js-check').prop('checked')
+    ).get()
+
+    @ajax(
+      type: 'POST'
+      url:  "#{@apiPath}/cti/done/bulk"
+      data: JSON.stringify({ids: @logIds})
+    )
+
   done: (e) =>
     element = $(e.currentTarget)
-    id = element.closest('tr').data('id')
-    done = element.prop('checked')
+    id      = element.closest('tr').data('id')
+    done    = element.prop('checked')
     @ajax(
       type:  'POST'
       url:   "#{@apiPath}/cti/done/#{id}"
       data:  JSON.stringify(done: done)
+      queue: 'cti_done_queue'
     )
 
-  userNew: (e) ->
+  newTicket: (user) =>
+    if user
+      @navigate("ticket/create/customer/#{user.id}")
+      return
+    @navigate('ticket/create')
+
+  newUser: (e) ->
     e.preventDefault()
-    phone = $(e.currentTarget).text()
+    phone = $(e.currentTarget).data('phone')
     new App.ControllerGenericNew(
       pageData:
         title:     'Users'
@@ -176,7 +235,7 @@ class App.CTI extends App.Controller
       genericObject: 'User'
       item:
         phone: phone
-      container: @el.closest('.content')
+      #container: @el.closest('.content')
       callback: @ticketNew
     )
 
@@ -220,6 +279,33 @@ class App.CTI extends App.Controller
 
   currentPosition: =>
     @$('.main').scrollTop()
+
+class WidgetAvatar extends App.ObserverController
+  @extend App.PopoverProvidable
+  @registerPopovers 'User'
+
+  model: 'User'
+  observe:
+    login: true
+    firstname: true
+    lastname: true
+    organization_id: true
+    email: true
+    image: true
+    vip: true
+    out_of_office: true,
+    out_of_office_start_at: true,
+    out_of_office_end_at: true,
+    out_of_office_replacement_id: true,
+    active: true
+
+  globalRerender: false
+
+  render: (user) =>
+    classes = ['user-popover', 'u-textTruncate']
+    classes.push('is-inactive') if !user.active
+    @html(App.view('cti/caller_log_avatar')(user: user, classes: classes, level: @level))
+    @renderPopovers()
 
 class CTIRouter extends App.ControllerPermanent
   requiredPermission: 'cti.agent'

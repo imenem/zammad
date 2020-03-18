@@ -7,7 +7,7 @@ namespace :zammad do
       namespace :scheduler do
 
         desc 'Starts the scheduler'
-        task :start do
+        task :start do # rubocop:disable Rails/RakeEnvironment
 
           command = [
             'bundle',
@@ -16,7 +16,7 @@ namespace :zammad do
             'start',
           ]
 
-          stdout, stderr, status = Open3.capture3(*command)
+          _stdout, stderr, status = Open3.capture3(*command)
 
           next if status.success?
 

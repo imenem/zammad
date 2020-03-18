@@ -90,11 +90,11 @@
 
 ###
 class App.ControllerTable extends App.Controller
-  minColWidth: 40
+  minColWidth: 30
   baseColWidth: 130
   minTableWidth: 612
 
-  checkBoxColWidth: 40
+  checkBoxColWidth: 30
   radioColWidth: 22
   sortableColWidth: 36
   destroyColWidth: 70
@@ -116,6 +116,7 @@ class App.ControllerTable extends App.Controller
   shownPage: 0
 
   destroy: false
+  customActions: []
 
   columnsLength: undefined
   headers: undefined
@@ -544,7 +545,7 @@ class App.ControllerTable extends App.Controller
 
     # get header data
     @headers = []
-    @actions = []
+    @actions = [].concat @customActions
     availableWidth = @availableWidth
     for item in @overviewAttributes
       headerFound = false
@@ -677,11 +678,22 @@ class App.ControllerTable extends App.Controller
     @lastOrderDirection = orderDirection
     @lastOrderBy = orderBy
 
+    # Underscore's sortBy cannot deal with null values, so we replace null values with a place holder string
+    sortBy = (list, iteratee) ->
+      _.sortBy(
+        list
+        (item) ->
+          res = iteratee(item)
+          return res if res
+          # null values are considered lexicographically "last"
+          '\uFFFF'
+      )
+
     localObjects is undefined
     if orderBy
       for header in @headers
         if header.name is orderBy || "#{header.name}_id" is orderBy || header.name is "#{orderBy}_id"
-          localObjects = _.sortBy(
+          localObjects = sortBy(
             @objects
             (item) ->
 

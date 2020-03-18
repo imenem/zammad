@@ -28,7 +28,7 @@ class Index extends App.ControllerSubContent
     )
 
   # check if the browser supports webcam access
-  # doesnt render the camera button if not
+  # doesn't render the camera button if not
   hasGetUserMedia: ->
     return !!(navigator.getUserMedia || navigator.webkitGetUserMedia ||
             navigator.mozGetUserMedia || navigator.msGetUserMedia)
@@ -286,7 +286,7 @@ class Camera extends App.ControllerModal
     @shootButton.removeClass 'is-disabled'
 
     # in case the modal is closed before the
-    # request was fullfilled
+    # request was fulfilled
     if @hidden
       @stopStream()
       return
@@ -301,14 +301,22 @@ class Camera extends App.ControllerModal
     # start to update the preview once its playing
     @video.on 'playing', @updatePreview
 
-    @video.attr 'src', window.URL.createObjectURL(stream)
+    # start stream
+    # Apparently this functionality (of creating a URL from a MediaStream) is now deprecated
+    # and has been removed from current versions of Chrome and Firefox as of mid/late 2018.
+    # See https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL for details.
+    # Apparently the new recommended approach is to set the srcObject property to the localStream directly:
+    try
+      @video.get(0).srcObject = stream
+    catch err
+      @video.attr 'src', window.URL.createObjectURL(stream)
 
     # start the stream
     @video.get(0).play()
 
   onWebcamError: (error) =>
     # in case the modal is closed before the
-    # request was fullfilled
+    # request was fulfilled
     if @hidden
       return
 
@@ -340,7 +348,7 @@ class Camera extends App.ControllerModal
   updatePreview: =>
     # try catch fixes a Firefox error
     # were the drawImage wouldn't work
-    # because the video didn't get inizialized
+    # because the video didn't get initialized
     # yet internally
     # http://stackoverflow.com/questions/18580844/firefox-drawimagevideo-fails-with-ns-error-not-available-component-is-not-av
     try

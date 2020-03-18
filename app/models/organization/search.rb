@@ -34,7 +34,7 @@ returns if user has no permissions to search
         return false if !current_user.permissions?('ticket.agent') && !current_user.permissions?('admin.organization')
 
         {
-          prio: 1000,
+          prio:                1500,
           direct_search_index: true,
         }
       end
@@ -72,20 +72,20 @@ returns
         offset = params[:offset] || 0
         current_user = params[:current_user]
 
-        # check sort
-        sort_by = search_get_sort_by(params, 'updated_at')
+        # check sort - positions related to order by
+        sort_by = search_get_sort_by(params, %w[active updated_at])
 
-        # check order
-        order_by = search_get_order_by(params, 'desc')
+        # check order - positions related to sort by
+        order_by = search_get_order_by(params, %w[desc desc])
 
         # enable search only for agents and admins
         return [] if !search_preferences(current_user)
 
         # try search index backend
         if SearchIndexBackend.enabled?
-          items = SearchIndexBackend.search(query, 'Organization', limit: limit,
-                                                                   from: offset,
-                                                                   sort_by: sort_by,
+          items = SearchIndexBackend.search(query, 'Organization', limit:    limit,
+                                                                   from:     offset,
+                                                                   sort_by:  sort_by,
                                                                    order_by: order_by)
           organizations = []
           items.each do |item|
@@ -104,7 +104,7 @@ returns
         # - stip out * we already search for *query* -
         query.delete! '*'
         organizations = Organization.where_or_cis(%i[name note], "%#{query}%")
-                                    .order(order_sql)
+                                    .order(Arel.sql(order_sql))
                                     .offset(offset)
                                     .limit(limit)
                                     .to_a
@@ -118,7 +118,7 @@ returns
         organizations_by_user = Organization.select("DISTINCT(organizations.id), #{order_select_sql}")
                                             .joins('LEFT OUTER JOIN users ON users.organization_id = organizations.id')
                                             .where(User.or_cis(%i[firstname lastname email], "%#{query}%"))
-                                            .order(order_sql)
+                                            .order(Arel.sql(order_sql))
                                             .limit(limit)
 
         organizations_by_user.each do |organization_by_user|

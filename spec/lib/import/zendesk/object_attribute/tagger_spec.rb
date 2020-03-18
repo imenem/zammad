@@ -31,28 +31,28 @@ RSpec.describe Import::Zendesk::ObjectAttribute::Tagger do
     )
 
     expected_structure = {
-      object:      'Ticket',
-      name:        'example_field',
-      display:     'Example attribute',
-      data_type:   'select',
-      data_option: {
-        null:      false,
-        note:      'Example attribute description',
+      object:        'Ticket',
+      name:          'example_field',
+      display:       'Example attribute',
+      data_type:     'select',
+      data_option:   {
+        null:    false,
+        note:    'Example attribute description',
         default: '',
         options: {
           'Key 1' => 'Value 1',
           'Key 2' => 'Value 2'
         },
       },
-      editable: true,
-      active:   true,
-      screens:  {
+      editable:      true,
+      active:        true,
+      screens:       {
         edit: {
           Customer: {
             shown: true,
-            null: false
+            null:  false
           },
-          view: {
+          view:     {
             '-all-' => {
               shown: true
             }
@@ -67,6 +67,6 @@ RSpec.describe Import::Zendesk::ObjectAttribute::Tagger do
     expect(ObjectManager::Attribute).to receive(:add).with(expected_structure)
     expect(ObjectManager::Attribute).to receive(:migration_execute)
 
-    created_instance = described_class.new('Ticket', 'example_field', attribute)
+    described_class.new('Ticket', 'example_field', attribute)
   end
 end

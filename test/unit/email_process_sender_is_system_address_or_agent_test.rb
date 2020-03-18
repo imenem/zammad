@@ -4,10 +4,10 @@ class EmailProcessSenderIsSystemAddressOrAgent < ActiveSupport::TestCase
 
   setup do
     EmailAddress.create_or_update(
-      channel_id: 1,
-      realname: 'My System',
-      email: 'Myzammad@system.TEST',
-      active: true,
+      channel_id:    1,
+      realname:      'My System',
+      email:         'Myzammad@system.TEST',
+      active:        true,
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -21,7 +21,7 @@ Subject: #{subject}
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket = Ticket.find(ticket_p.id)
     article = Ticket::Article.find(article_p.id)
     assert_equal(subject, ticket.title)
@@ -40,7 +40,7 @@ Message-ID: <123456789-1@linuxhotel.de>
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket = Ticket.find(ticket_p.id)
     article = Ticket::Article.find(article_p.id)
 
@@ -50,11 +50,11 @@ Some Text"
     assert_equal('Agent', article.sender.name)
     assert_equal('me+is+customer@example.com', ticket.customer.email)
 
-    # check if follow up based on inital system sender address
+    # check if follow-up based on inital system sender address
     setting_orig = Setting.get('postmaster_follow_up_search_in')
     Setting.set('postmaster_follow_up_search_in', [])
 
-    # follow up possible because same subject
+    # follow-up possible because same subject
     email_raw_string = "From: me+is+customer@example.com
 To: myzammad@system.test
 Subject: #{subject}
@@ -63,13 +63,12 @@ References: <123456789-1@linuxhotel.de>
 
 Some Text"
 
-    ticket_p2, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p2, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket2 = Ticket.find(ticket_p2.id)
-    article = Ticket::Article.find(article_p.id)
     assert_equal(subject, ticket2.title)
     assert_equal(ticket.id, ticket2.id)
 
-    # follow up not possible because subject has changed
+    # follow-up not possible because subject has changed
     subject = "new subject without ticket ref #{rand(9_999_999)}"
     email_raw_string = "From: me+is+customer@example.com
 To: myzammad@system.test
@@ -79,9 +78,8 @@ References: <123456789-1@linuxhotel.de>
 
 Some Text"
 
-    ticket_p2, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p2, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket2 = Ticket.find(ticket_p2.id)
-    article = Ticket::Article.find(article_p.id)
     assert_not_equal(ticket.id, ticket2.id)
     assert_equal(subject, ticket2.title)
     assert_equal('new', ticket2.state.name)
@@ -95,13 +93,13 @@ Some Text"
     # create customer
     roles = Role.where(name: 'Customer')
     customer1 = User.create_or_update(
-      login: 'ticket-system-sender-customer1@example.com',
-      firstname: 'system-sender',
-      lastname: 'Customer1',
-      email: 'ticket-system-sender-customer1@example.com',
-      password: 'customerpw',
-      active: true,
-      roles: roles,
+      login:         'ticket-system-sender-customer1@example.com',
+      firstname:     'system-sender',
+      lastname:      'Customer1',
+      email:         'ticket-system-sender-customer1@example.com',
+      password:      'customerpw',
+      active:        true,
+      roles:         roles,
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -110,14 +108,14 @@ Some Text"
     groups = Group.all
     roles  = Role.where(name: 'Agent')
     agent1 = User.create_or_update(
-      login: 'ticket-system-sender-agent1@example.com',
-      firstname: 'system-sender',
-      lastname: 'Agent1',
-      email: 'ticket-system-sender-agent1@example.com',
-      password: 'agentpw',
-      active: true,
-      roles: roles,
-      groups: groups,
+      login:         'ticket-system-sender-agent1@example.com',
+      firstname:     'system-sender',
+      lastname:      'Agent1',
+      email:         'ticket-system-sender-agent1@example.com',
+      password:      'agentpw',
+      active:        true,
+      roles:         roles,
+      groups:        groups,
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -129,7 +127,7 @@ Subject: some subject #1
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket = Ticket.find(ticket_p.id)
     article = Ticket::Article.find(article_p.id)
     assert_equal('some subject #1', ticket.title)
@@ -147,7 +145,7 @@ Subject: some subject #2
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket = Ticket.find(ticket_p.id)
     article = Ticket::Article.find(article_p.id)
     assert_equal('some subject #2', ticket.title)
@@ -164,7 +162,7 @@ Subject: some subject #3
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket = Ticket.find(ticket_p.id)
     article = Ticket::Article.find(article_p.id)
     assert_equal('some subject #3', ticket.title)
@@ -181,7 +179,7 @@ Subject: some subject #4
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket = Ticket.find(ticket_p.id)
     article = Ticket::Article.find(article_p.id)
     assert_equal('some subject #4', ticket.title)
@@ -198,7 +196,7 @@ Subject: some subject #5
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket = Ticket.find(ticket_p.id)
     article = Ticket::Article.find(article_p.id)
     assert_equal('some subject #5', ticket.title)
@@ -215,7 +213,7 @@ Subject: some subject #6
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     ticket = Ticket.find(ticket_p.id)
     article = Ticket::Article.find(article_p.id)
     assert_equal('some subject #6', ticket.title)

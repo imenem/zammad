@@ -2,7 +2,7 @@
 
 class FormController < ApplicationController
   skip_before_action :verify_csrf_token
-  before_action :cors_preflight_check_execute
+  before_action :cors_preflight_check
   after_action :set_access_control_headers_execute
   skip_before_action :user_device_check
 
@@ -41,13 +41,6 @@ class FormController < ApplicationController
     if params[:name].blank?
       errors['name'] = 'required'
     end
-    if params[:email].blank?
-      errors['email'] = 'required'
-    elsif !/@/.match?(params[:email])
-      errors['email'] = 'invalid'
-    elsif params[:email].match?(/(>|<|\||\!|"|§|'|\$|%|&|\(|\)|\?|\s|\.\.)/)
-      errors['email'] = 'invalid'
-    end
     if params[:title].blank?
       errors['title'] = 'required'
     end
@@ -55,11 +48,12 @@ class FormController < ApplicationController
       errors['body'] = 'required'
     end
 
-    # realtime verify
-    if errors['email'].blank?
+    if params[:email].blank?
+      errors['email'] = 'required'
+    else
       begin
-        address = ValidEmail2::Address.new(params[:email])
-        if !address || !address.valid? || !address.valid_mx?
+        email_address_validation = EmailAddressValidation.new(params[:email])
+        if !email_address_validation.valid_format? || !email_address_validation.valid_mx?
           errors['email'] = 'invalid'
         end
       rescue => e
@@ -85,11 +79,11 @@ class FormController < ApplicationController
     if !customer
       role_ids = Role.signup_role_ids
       customer = User.create(
-        firstname: name,
-        lastname: '',
-        email: email,
-        active: true,
-        role_ids: role_ids,
+        firstname:     name,
+        lastname:      '',
+        email:         email,
+        active:        true,
+        role_ids:      role_ids,
         updated_by_id: 1,
         created_by_id: 1,
       )
@@ -106,31 +100,31 @@ class FormController < ApplicationController
       end
     end
     ticket = Ticket.create!(
-      group_id: group.id,
+      group_id:    group.id,
       customer_id: customer.id,
-      title: params[:title],
+      title:       params[:title],
       preferences: {
         form: {
-          remote_ip: request.remote_ip,
+          remote_ip:       request.remote_ip,
           fingerprint_md5: Digest::MD5.hexdigest(params[:fingerprint]),
         }
       }
     )
     article = Ticket::Article.create!(
       ticket_id: ticket.id,
-      type_id: Ticket::Article::Type.find_by(name: 'web').id,
+      type_id:   Ticket::Article::Type.find_by(name: 'web').id,
       sender_id: Ticket::Article::Sender.find_by(name: 'Customer').id,
-      body: params[:body],
-      subject: params[:title],
-      internal: false,
+      body:      params[:body],
+      subject:   params[:title],
+      internal:  false,
     )
 
     params[:file]&.each do |file|
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: file.read,
-        filename: file.original_filename,
+        object:      'Ticket::Article',
+        o_id:        article.id,
+        data:        file.read,
+        filename:    file.original_filename,
         preferences: {
           'Mime-Type' => file.content_type,
         }
@@ -141,7 +135,7 @@ class FormController < ApplicationController
 
     result = {
       ticket: {
-        id: ticket.id,
+        id:     ticket.id,
         number: ticket.number
       }
     }
@@ -159,44 +153,37 @@ class FormController < ApplicationController
   def token_valid?(token, fingerprint)
     if token.blank?
       Rails.logger.info 'No token for form!'
-      response_access_deny
-      return false
+      raise Exceptions::NotAuthorized
     end
     begin
       crypt = ActiveSupport::MessageEncryptor.new(Setting.get('application_secret')[0, 32])
       result = crypt.decrypt_and_verify(Base64.decode64(token))
     rescue
       Rails.logger.info 'Invalid token for form!'
-      response_access_deny
-      return false
+      raise Exceptions::NotAuthorized
     end
     if result.blank?
       Rails.logger.info 'Invalid token for form!'
-      response_access_deny
-      return false
+      raise Exceptions::NotAuthorized
     end
     parts = result.split(/:/)
     if parts.count != 3
       Rails.logger.info "Invalid token for form (need to have 3 parts, only #{parts.count} found)!"
-      response_access_deny
-      return false
+      raise Exceptions::NotAuthorized
     end
     fqdn_local = Base64.decode64(parts[0])
     if fqdn_local != Setting.get('fqdn')
       Rails.logger.info "Invalid token for form (invalid fqdn found #{fqdn_local} != #{Setting.get('fqdn')})!"
-      response_access_deny
-      return false
+      raise Exceptions::NotAuthorized
     end
     fingerprint_local = Base64.decode64(parts[2])
     if fingerprint_local != fingerprint
       Rails.logger.info "Invalid token for form (invalid fingerprint found #{fingerprint_local} != #{fingerprint})!"
-      response_access_deny
-      return false
+      raise Exceptions::NotAuthorized
     end
     if parts[1].to_i < (Time.zone.now.to_i - 60 * 60 * 24)
       Rails.logger.info 'Invalid token for form (token expired})!'
-      response_access_deny
-      return false
+      raise Exceptions::NotAuthorized
     end
     true
   end
@@ -204,26 +191,21 @@ class FormController < ApplicationController
   def limit_reached?
     return false if !SearchIndexBackend.enabled?
 
+    # quote ipv6 ip'
+    remote_ip = request.remote_ip.gsub(':', '\\:')
+
+    # in elasticsearch7 "created_at:>now-1h" is not working. Needed to catch -2h
     form_limit_by_ip_per_hour = Setting.get('form_ticket_create_by_ip_per_hour') || 20
-    result = SearchIndexBackend.search("preferences.form.remote_ip:'#{request.remote_ip}' AND created_at:>now-1h", 'Ticket', limit: form_limit_by_ip_per_hour)
-    if result.count >= form_limit_by_ip_per_hour.to_i
-      response_access_deny
-      return true
-    end
+    result = SearchIndexBackend.search("preferences.form.remote_ip:'#{remote_ip}' AND created_at:>now-2h", 'Ticket', limit: form_limit_by_ip_per_hour)
+    raise Exceptions::NotAuthorized if result.count >= form_limit_by_ip_per_hour.to_i
 
     form_limit_by_ip_per_day = Setting.get('form_ticket_create_by_ip_per_day') || 240
-    result = SearchIndexBackend.search("preferences.form.remote_ip:'#{request.remote_ip}' AND created_at:>now-1d", 'Ticket', limit: form_limit_by_ip_per_day)
-    if result.count >= form_limit_by_ip_per_day.to_i
-      response_access_deny
-      return true
-    end
+    result = SearchIndexBackend.search("preferences.form.remote_ip:'#{remote_ip}' AND created_at:>now-1d", 'Ticket', limit: form_limit_by_ip_per_day)
+    raise Exceptions::NotAuthorized if result.count >= form_limit_by_ip_per_day.to_i
 
     form_limit_per_day = Setting.get('form_ticket_create_per_day') || 5000
     result = SearchIndexBackend.search('preferences.form.remote_ip:* AND created_at:>now-1d', 'Ticket', limit: form_limit_per_day)
-    if result.count >= form_limit_per_day.to_i
-      response_access_deny
-      return true
-    end
+    raise Exceptions::NotAuthorized if result.count >= form_limit_per_day.to_i
 
     false
   end
@@ -232,16 +214,14 @@ class FormController < ApplicationController
     return true if params[:fingerprint].present? && params[:fingerprint].length > 30
 
     Rails.logger.info 'No fingerprint given!'
-    response_access_deny
-    false
+    raise Exceptions::NotAuthorized
   end
 
   def enabled?
     return true if params[:test] && current_user && current_user.permissions?('admin.channel_formular')
     return true if Setting.get('form_ticket_create')
 
-    response_access_deny
-    false
+    raise Exceptions::NotAuthorized
   end
 
 end

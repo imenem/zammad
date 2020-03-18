@@ -8,7 +8,7 @@ RSpec.describe 'External Credentials', type: :request do
       it 'returns 401 unauthorized' do
         get '/api/v1/external_credentials', as: :json
 
-        expect(response).to have_http_status(401)
+        expect(response).to have_http_status(:unauthorized)
         expect(json_response).to include('error' => 'authentication failed')
       end
     end
@@ -17,7 +17,7 @@ RSpec.describe 'External Credentials', type: :request do
       it 'returns 401 unauthorized' do
         post '/api/v1/external_credentials/facebook/app_verify', as: :json
 
-        expect(response).to have_http_status(401)
+        expect(response).to have_http_status(:unauthorized)
         expect(json_response).to include('error' => 'authentication failed')
       end
     end
@@ -26,7 +26,7 @@ RSpec.describe 'External Credentials', type: :request do
       it 'returns 401 unauthorized' do
         get '/api/v1/external_credentials/facebook/link_account', as: :json
 
-        expect(response).to have_http_status(401)
+        expect(response).to have_http_status(:unauthorized)
         expect(json_response).to include('error' => 'authentication failed')
       end
     end
@@ -35,7 +35,7 @@ RSpec.describe 'External Credentials', type: :request do
       it 'returns 401 unauthorized' do
         get '/api/v1/external_credentials/facebook/callback', as: :json
 
-        expect(response).to have_http_status(401)
+        expect(response).to have_http_status(:unauthorized)
         expect(json_response).to include('error' => 'authentication failed')
       end
     end
@@ -48,7 +48,7 @@ RSpec.describe 'External Credentials', type: :request do
       it 'responds with an array of ExternalCredential records' do
         get '/api/v1/external_credentials', as: :json
 
-        expect(response).to have_http_status(200)
+        expect(response).to have_http_status(:ok)
         expect(json_response).to eq([])
       end
 
@@ -56,7 +56,7 @@ RSpec.describe 'External Credentials', type: :request do
         it 'responds with an array of ExternalCredential records and their association data' do
           get '/api/v1/external_credentials?expand=true', as: :json
 
-          expect(response).to have_http_status(200)
+          expect(response).to have_http_status(:ok)
           expect(json_response).to eq([])
         end
       end
@@ -74,7 +74,7 @@ RSpec.describe 'External Credentials', type: :request do
 
             it 'returns 401 unauthorized with internal (Zammad) error' do
               post '/api/v1/external_credentials/facebook/app_verify', as: :json
-              expect(response).to have_http_status(401)
+              expect(response).to have_http_status(:unauthorized)
               expect(json_response).to include('error' => 'Not authorized (user)!')
             end
           end
@@ -83,18 +83,16 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 200 with internal (Zammad) error' do
               post '/api/v1/external_credentials/facebook/app_verify', as: :json
 
-              expect(response).to have_http_status(200)
+              expect(response).to have_http_status(:ok)
               expect(json_response).to include('error' => 'No application_id param!')
             end
           end
 
           context 'with invalid credentials, via request params' do
-            it 'returns 200 with remote (Facebook auth) error' do
-              VCR.use_cassette('request/external_credentials/facebook/app_verify_invalid_credentials_with_not_created') do
-                post '/api/v1/external_credentials/facebook/app_verify', params: invalid_credentials, as: :json
-              end
+            it 'returns 200 with remote (Facebook auth) error', :use_vcr do
+              post '/api/v1/external_credentials/facebook/app_verify', params: invalid_credentials, as: :json
 
-              expect(response).to have_http_status(200)
+              expect(response).to have_http_status(:ok)
               expect(json_response).to include('error' => 'type: OAuthException, code: 101, message: Error validating application. Cannot get application info due to a system error. [HTTP 400]')
             end
           end
@@ -102,12 +100,10 @@ RSpec.describe 'External Credentials', type: :request do
           context 'with invalid credentials, via ExternalCredential record' do
             before { create(:facebook_credential, credentials: invalid_credentials) }
 
-            it 'returns 200 with remote (Facebook auth) error' do
-              VCR.use_cassette('request/external_credentials/facebook/app_verify_invalid_credentials_with_created') do
-                post '/api/v1/external_credentials/facebook/app_verify', as: :json
-              end
+            it 'returns 200 with remote (Facebook auth) error', :use_vcr do
+              post '/api/v1/external_credentials/facebook/app_verify', as: :json
 
-              expect(response).to have_http_status(200)
+              expect(response).to have_http_status(:ok)
               expect(json_response).to include('error' => 'type: OAuthException, code: 101, message: Error validating application. Cannot get application info due to a system error. [HTTP 400]')
             end
           end
@@ -120,7 +116,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/facebook/link_account', as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No facebook app configured!')
             end
           end
@@ -129,7 +125,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/facebook/link_account', params: invalid_credentials, as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No facebook app configured!')
             end
           end
@@ -137,12 +133,10 @@ RSpec.describe 'External Credentials', type: :request do
           context 'with invalid credentials, via ExternalCredential record' do
             before { create(:facebook_credential, credentials: invalid_credentials) }
 
-            it 'returns 500 with remote (Facebook auth) error' do
-              VCR.use_cassette('request/external_credentials/facebook/link_account_with_invalid_credential') do
-                get '/api/v1/external_credentials/facebook/link_account', as: :json
-              end
+            it 'returns 500 with remote (Facebook auth) error', :use_vcr do
+              get '/api/v1/external_credentials/facebook/link_account', as: :json
 
-              expect(response).to have_http_status(500)
+              expect(response).to have_http_status(:internal_server_error)
               expect(json_response).to include('error' => 'type: OAuthException, code: 101, message: Error validating application. Cannot get application info due to a system error. [HTTP 400]')
             end
           end
@@ -155,7 +149,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/facebook/callback', as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No facebook app configured!')
             end
           end
@@ -164,7 +158,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/facebook/callback', params: invalid_credentials, as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No facebook app configured!')
             end
           end
@@ -172,12 +166,10 @@ RSpec.describe 'External Credentials', type: :request do
           context 'with invalid credentials, via ExternalCredential record' do
             before { create(:facebook_credential, credentials: invalid_credentials) }
 
-            it 'returns 500 with remote (Facebook auth) error' do
-              VCR.use_cassette('request/external_credentials/facebook/callback_invalid_credentials') do
-                get '/api/v1/external_credentials/facebook/callback', as: :json
-              end
+            it 'returns 500 with remote (Facebook auth) error', :use_vcr do
+              get '/api/v1/external_credentials/facebook/callback', as: :json
 
-              expect(response).to have_http_status(500)
+              expect(response).to have_http_status(:internal_server_error)
               expect(json_response).to include('error' => 'type: OAuthException, code: 101, message: Error validating application. Cannot get application info due to a system error. [HTTP 400]')
             end
           end
@@ -197,7 +189,7 @@ RSpec.describe 'External Credentials', type: :request do
 
             it 'returns 401 unauthorized with internal (Zammad) error' do
               post '/api/v1/external_credentials/twitter/app_verify', as: :json
-              expect(response).to have_http_status(401)
+              expect(response).to have_http_status(:unauthorized)
               expect(json_response).to include('error' => 'Not authorized (user)!')
             end
           end
@@ -206,18 +198,16 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 200 with internal (Zammad) error' do
               post '/api/v1/external_credentials/twitter/app_verify', as: :json
 
-              expect(response).to have_http_status(200)
+              expect(response).to have_http_status(:ok)
               expect(json_response).to include('error' => 'No consumer_key param!')
             end
           end
 
           context 'with invalid credentials, via request params' do
-            it 'returns 200 with remote (Twitter auth) error' do
-              VCR.use_cassette('request/external_credentials/twitter/app_verify_invalid_credentials_with_not_created') do
-                post '/api/v1/external_credentials/twitter/app_verify', params: invalid_credentials, as: :json
-              end
+            it 'returns 200 with remote (Twitter auth) error', :use_vcr do
+              post '/api/v1/external_credentials/twitter/app_verify', params: invalid_credentials, as: :json
 
-              expect(response).to have_http_status(200)
+              expect(response).to have_http_status(:ok)
               expect(json_response).to include('error' => '401 Authorization Required')
             end
           end
@@ -225,12 +215,10 @@ RSpec.describe 'External Credentials', type: :request do
           context 'with invalid credentials, via existing ExternalCredential record' do
             before { create(:twitter_credential, credentials: invalid_credentials) }
 
-            it 'returns 200 with remote (Twitter auth) error' do
-              VCR.use_cassette('request/external_credentials/twitter/app_verify_invalid_credentials_with_created') do
-                post '/api/v1/external_credentials/twitter/app_verify', as: :json
-              end
+            it 'returns 200 with remote (Twitter auth) error', :use_vcr do
+              post '/api/v1/external_credentials/twitter/app_verify', as: :json
 
-              expect(response).to have_http_status(200)
+              expect(response).to have_http_status(:ok)
               expect(json_response).to include('error' => '401 Authorization Required')
             end
           end
@@ -243,7 +231,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/twitter/link_account', as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No twitter app configured!')
             end
           end
@@ -252,7 +240,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/twitter/link_account', params: invalid_credentials, as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No twitter app configured!')
             end
           end
@@ -260,12 +248,10 @@ RSpec.describe 'External Credentials', type: :request do
           context 'with invalid credentials, via ExternalCredential record' do
             before { create(:twitter_credential, credentials: invalid_credentials) }
 
-            it 'returns 500 with remote (Twitter auth) error' do
-              VCR.use_cassette('request/external_credentials/twitter/link_account_with_invalid_credential') do
-                get '/api/v1/external_credentials/twitter/link_account', as: :json
-              end
+            it 'returns 500 with remote (Twitter auth) error', :use_vcr do
+              get '/api/v1/external_credentials/twitter/link_account', as: :json
 
-              expect(response).to have_http_status(500)
+              expect(response).to have_http_status(:internal_server_error)
               expect(json_response).to include('error' => '401 Authorization Required')
             end
           end
@@ -278,7 +264,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/twitter/callback', as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No twitter app configured!')
             end
           end
@@ -287,7 +273,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/twitter/callback', params: invalid_credentials, as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No twitter app configured!')
             end
           end
@@ -298,7 +284,7 @@ RSpec.describe 'External Credentials', type: :request do
             it 'returns 422 unprocessable entity with internal (Zammad) error' do
               get '/api/v1/external_credentials/twitter/callback', as: :json
 
-              expect(response).to have_http_status(422)
+              expect(response).to have_http_status(:unprocessable_entity)
               expect(json_response).to include('error' => 'No request_token for session found!')
             end
           end

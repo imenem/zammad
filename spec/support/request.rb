@@ -132,4 +132,23 @@ RSpec.configure do |config|
   config.before(:each, type: :request) do
     Setting.set('system_init_done', true)
   end
+
+  # This helper allows you to authenticate as a given user in request specs
+  # via the example metadata, rather than directly:
+  #
+  #     it 'does something', authenticated_as: :user
+  #
+  # In order for this to work, you must define the user in a `let` block first:
+  #
+  #     let(:user) { create(:customer_user) }
+  #
+  config.before(:each, :authenticated_as) do |example|
+    @current_user = if example.metadata[:authenticated_as].is_a? Proc
+                      instance_exec(&example.metadata[:authenticated_as])
+                    else
+                      create(*Array(example.metadata[:authenticated_as]))
+                    end
+
+    authenticated_as @current_user unless @current_user.nil?
+  end
 end

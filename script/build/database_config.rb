@@ -4,12 +4,18 @@ cnf = YAML.load_file(File.join(__dir__, '../../config/database/database.yml'))
 
 cnf.delete('default')
 
-hostsfile = '/etc/hosts'
-database  = %w[postgresql mysql].find do |possible_database|
-  File.foreach(hostsfile).any? { |l| l[possible_database] }
+database = ENV['ENFORCE_DB_SERVICE']
+
+if !database
+  hostsfile = '/etc/hosts'
+  database  = %w[postgresql mysql].shuffle.find do |possible_database|
+    File.foreach(hostsfile).any? { |l| l[possible_database] }
+  end
 end
 
 raise "Can't find any supported database in #{hostsfile}." if database.nil?
+
+puts "NOTICE: Found/selected #{database} Database Service"
 
 db_settings_map = {
   'postgresql' => {
@@ -18,7 +24,7 @@ db_settings_map = {
     'password' => 'zammad',
     'host'     => 'postgresql', # db alias from gitlab-ci.yml
   },
-  'mysql' => {
+  'mysql'      => {
     'adapter'  => 'mysql2',
     'username' => 'root',
     'password' => 'zammad',

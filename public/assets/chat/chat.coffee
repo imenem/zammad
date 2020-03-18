@@ -1,9 +1,13 @@
 do($ = window.jQuery, window) ->
 
   scripts = document.getElementsByTagName('script')
+
+  # search for script to get protocol and hostname for ws connection
   myScript = scripts[scripts.length - 1]
-  scriptHost = myScript.src.match('.*://([^:/]*).*')[1]
-  scriptProtocol = myScript.src.match('(.*)://[^:/]*.*')[1]
+  scriptProtocol = window.location.protocol.replace(':', '') # set default protocol
+  if myScript && myScript.src
+    scriptHost = myScript.src.match('.*://([^:/]*).*')[1]
+    scriptProtocol = myScript.src.match('(.*)://[^:/]*.*')[1]
 
   # Define the plugin class
   class Base
@@ -166,6 +170,15 @@ do($ = window.jQuery, window) ->
       inactiveTimeoutIntervallCheck: 0.5
       waitingListTimeout: 4
       waitingListTimeoutIntervallCheck: 0.5
+      # Callbacks
+      onReady: undefined
+      onCloseAnimationEnd: undefined
+      onError: undefined
+      onOpenAnimationEnd: undefined
+      onConnectionReestablished: undefined
+      onSessionClosed: undefined
+      onConnectionEstablished: undefined
+      onCssLoaded: undefined
 
     logPrefix: 'chat'
     _messageCount: 0
@@ -180,6 +193,23 @@ do($ = window.jQuery, window) ->
     state: 'offline'
     initialQueueDelay: 10000
     translations:
+      'da':
+        '<strong>Chat</strong> with us!': '<strong>Chat</strong> med os!'
+        'Scroll down to see new messages': 'Scroll ned for at se nye beskeder'
+        'Online': 'Online'
+        'Offline': 'Offline'
+        'Connecting': 'Forbinder'
+        'Connection re-established': 'Forbindelse genoprettet'
+        'Today': 'I dag'
+        'Send': 'Send'
+        'Chat closed by %s': 'Chat lukket af %s'
+        'Compose your message...': 'Skriv en besked...'
+        'All colleagues are busy.': 'Alle kollegaer er optaget.'
+        'You are on waiting list position <strong>%s</strong>.': 'Du er i venteliste som nummer <strong>%s</strong>.'
+        'Start new conversation': 'Start en ny samtale'
+        'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Da du ikke har svaret i de sidste %s minutter er din samtale med <strong>%s</strong> blevet lukket.'
+        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Da du ikke har svaret i de sidste %s minutter er din samtale blevet lukket.'
+        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Vi beklager, det tager længere end forventet at få en ledig plads. Prøv venligst igen senere eller send os en e-mail. På forhånd tak!'
       'de':
         '<strong>Chat</strong> with us!': '<strong>Chatte</strong> mit uns!'
         'Scroll down to see new messages': 'Scrolle nach unten um neue Nachrichten zu sehen'
@@ -214,6 +244,23 @@ do($ = window.jQuery, window) ->
         'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Puesto que usted no respondió en los últimos %s minutos su conversación con <strong>%s</strong> se ha cerrado.'
         'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Puesto que usted no respondió en los últimos %s minutos su conversación se ha cerrado.'
         'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Lo sentimos, se tarda más tiempo de lo esperado para ser atendido por un agente. Inténtelo de nuevo más tarde o envíenos un correo electrónico. ¡Gracias!'
+      'fi':
+        '<strong>Chat</strong> with us!': '<strong>Keskustele</strong> kanssamme!'
+        'Scroll down to see new messages': 'Rullaa alas nähdäksesi uudet viestit'
+        'Online': 'Paikalla'
+        'Offline': 'Poissa'
+        'Connecting': 'Yhdistetään'
+        'Connection re-established': 'Yhteys muodostettu uudelleen'
+        'Today': 'Tänään'
+        'Send': 'Lähetä'
+        'Chat closed by %s': '%s sulki keskustelun'
+        'Compose your message...': 'Luo viestisi...'
+        'All colleagues are busy.': 'Kaikki kollegat ovat varattuja.'
+        'You are on waiting list position <strong>%s</strong>.': 'Olet odotuslistalla sijalla <strong>%s</strong>.'
+        'Start new conversation': 'Aloita uusi keskustelu'
+        'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Koska et vastannut viimeiseen %s minuuttiin, keskustelusi <strong>%s</strong> kanssa suljettiin.'
+        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Koska et vastannut viimeiseen %s minuuttiin, keskustelusi suljettiin.'
+        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Olemme pahoillamme, tyhjän paikan vapautumisessa kestää odotettua pidempään. Ole hyvä ja yritä myöhemmin uudestaan tai lähetä meille sähköpostia. Kiitos!'
       'fr':
         '<strong>Chat</strong> with us!': '<strong>Chattez</strong> avec nous!'
         'Scroll down to see new messages': 'Faites défiler pour lire les nouveaux messages'
@@ -333,6 +380,23 @@ do($ = window.jQuery, window) ->
         'Since you didn\'t respond in the last %s minutes your conversation with %s got closed.': 'Поскольку вы не отвечали в течение последних %s минут, ваш разговор с %s был закрыт.'
         'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Поскольку вы не отвечали в течение последних %s минут, ваш разговор был закрыт.'
         'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'К сожалению, ожидание свободного места требует больше времени. Повторите попытку позже или отправьте нам электронное письмо. Спасибо!'
+      'sv':
+        '<strong>Chat</strong> with us!': '<strong>Chatta</strong> med oss!'
+        'Scroll down to see new messages': 'Rulla ner för att se nya meddelanden'
+        'Online': 'Online'
+        'Offline': 'Offline'
+        'Connecting': 'Ansluter'
+        'Connection re-established': 'Anslutningen återupprättas'
+        'Today': 'I dag'
+        'Send': 'Skicka'
+        'Chat closed by %s': 'Chatt stängd av %s'
+        'Compose your message...': 'Skriv ditt meddelande...'
+        'All colleagues are busy.': 'Alla kollegor är upptagna.'
+        'You are on waiting list position <strong>%s</strong>.': 'Du är på väntelistan som position <strong>%s</strong>.'
+        'Start new conversation': 'Starta ny konversation'
+        'Since you didn\'t respond in the last %s minutes your conversation with <strong>%s</strong> got closed.': 'Eftersom du inte svarat inom %s minuterna i din konversation med <strong>%s</strong> så stängdes chatten.'
+        'Since you didn\'t respond in the last %s minutes your conversation got closed.': 'Då du inte svarat inom de senaste %s minuterna så avslutades din chatt.'
+        'We are sorry, it takes longer as expected to get an empty slot. Please try again later or send us an email. Thank you!': 'Vi är ledsna, det tar längre tid som förväntat att få en ledig plats. Försök igen senare eller skicka ett e-postmeddelande till oss. Tack!'
     sessionId: undefined
     scrolledToBottom: true
     scrollSnapTolerance: 10
@@ -715,6 +779,8 @@ do($ = window.jQuery, window) ->
             @onSessionClosed pipe.data
           when 'chat_session_left'
             @onSessionClosed pipe.data
+          when 'chat_session_notice'
+            @addStatus @T(pipe.data.message)
           when 'chat_status_customer'
             switch pipe.data.state
               when 'online'
@@ -737,6 +803,8 @@ do($ = window.jQuery, window) ->
       @log.debug 'widget ready for use'
       $(".#{ @options.buttonClass }").click(@open).removeClass(@inactiveClass)
 
+      @options.onReady?()
+
       if @options.show
         @show()
 
@@ -749,6 +817,8 @@ do($ = window.jQuery, window) ->
         @destroy(remove: false)
       else
         @destroy(remove: true)
+
+      @options.onError?(message)
 
     onReopenSession: (data) =>
       @log.debug 'old messages', data.session
@@ -875,6 +945,7 @@ do($ = window.jQuery, window) ->
 
       @isOpen = true
       @log.debug 'open widget'
+      @show()
 
       if !@sessionId
         @showLoader()
@@ -899,6 +970,7 @@ do($ = window.jQuery, window) ->
 
       if @isFullscreen
         @disableScrollOnRoot()
+      @options.onOpenAnimationEnd?()
 
     sessionClose: =>
       # send close
@@ -957,6 +1029,7 @@ do($ = window.jQuery, window) ->
       @el.find('.zammad-chat-agent-status').addClass('zammad-chat-is-hidden')
 
       @isOpen = false
+      @options.onCloseAnimationEnd?()
 
       @io.reconnect()
 
@@ -1123,12 +1196,14 @@ do($ = window.jQuery, window) ->
       @lastAddedType = 'status'
       @setAgentOnlineState 'online'
       @addStatus @T('Connection re-established')
+      @options.onConnectionReestablished?()
 
     onSessionClosed: (data) ->
       @addStatus @T('Chat closed by %s', data.realname)
       @disableInput()
       @setAgentOnlineState 'offline'
       @inactiveTimeout.stop()
+      @options.onSessionClosed?(data)
 
     setSessionId: (id) =>
       @sessionId = id
@@ -1168,6 +1243,7 @@ do($ = window.jQuery, window) ->
       @waitingListTimeout.stop()
       @idleTimeout.stop()
       @inactiveTimeout.start()
+      @options.onConnectionEstablished?(data)
 
     showCustomerTimeout: ->
       @el.find('.zammad-chat-modal').html @view('customer_timeout')
@@ -1226,6 +1302,7 @@ do($ = window.jQuery, window) ->
       @cssLoaded = true
       if @socketReady
         @onReady()
+      @options.onCssLoaded?()
 
     startTimeoutObservers: =>
       @idleTimeout = new Timeout(

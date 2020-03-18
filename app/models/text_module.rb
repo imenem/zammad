@@ -15,6 +15,8 @@ class TextModule < ApplicationModel
 
   csv_delete_possible true
 
+  has_and_belongs_to_many :groups, after_add: :cache_update, after_remove: :cache_update, class_name: 'Group'
+
 =begin
 
 load text modules from online
@@ -85,13 +87,13 @@ push text_modules to online
     result = UserAgent.post(
       url,
       {
-        locale: locale,
-        text_modules: text_modules_to_push,
-        fqdn: Setting.get('fqdn'),
+        locale:         locale,
+        text_modules:   text_modules_to_push,
+        fqdn:           Setting.get('fqdn'),
         translator_key: translator_key,
       },
       {
-        json: true,
+        json:         true,
         open_timeout: 6,
         read_timeout: 16,
       }
@@ -100,7 +102,7 @@ push text_modules to online
 
     # set new translator_key if given
     if result.data['translator_key']
-      translator_key = Setting.set('translator_key', result.data['translator_key'])
+      Setting.set('translator_key', result.data['translator_key'])
     end
 
     true

@@ -1,12 +1,18 @@
 FactoryBot.define do
   factory :ticket do
-    title 'Test Ticket'
-    group { Group.lookup(name: 'Users') }
-    customer { FactoryBot.create(:customer_user) }
-    state { Ticket::State.lookup(name: 'new') }
-    priority { Ticket::Priority.lookup(name: '2 normal') }
-    updated_by_id 1
-    created_by_id 1
+    transient do
+      state_name    { 'new' }
+      priority_name { '2 normal' }
+    end
+
+    association :group, strategy: :create  # or else build(:ticket).save fails
+
+    customer
+    title         { 'Test Ticket' }
+    state         { Ticket::State.lookup(name: state_name) }
+    priority      { Ticket::Priority.lookup(name: priority_name) }
+    updated_by_id { 1 }
+    created_by_id { 1 }
 
     factory :twitter_ticket do
       transient do
@@ -15,7 +21,7 @@ FactoryBot.define do
 
       preferences do
         {
-          channel_id: channel.id,
+          channel_id:          channel.id,
           channel_screen_name: channel.options[:user][:screen_name]
         }
       end

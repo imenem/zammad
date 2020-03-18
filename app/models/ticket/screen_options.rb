@@ -157,7 +157,7 @@ returns
 
 =begin
 
-list tickets by customer groupd in state categroie open and closed
+list tickets by customer group in state categories open and closed
 
   result = Ticket::ScreenOptions.list_by_customer(
     customer_id: 123,
@@ -177,14 +177,19 @@ returns
   def self.list_by_customer(data)
 
     # get closed/open states
-    state_list_open   = Ticket::State.by_category(:open)
-    state_list_closed = Ticket::State.by_category(:closed)
+    state_id_list_open   = Ticket::State.by_category(:open).pluck(:id)
+    state_id_list_closed = Ticket::State.by_category(:closed).pluck(:id)
+
+    # open tickets by customer
+    access_condition = Ticket.access_condition(data[:current_user], 'read')
 
     # get tickets
     tickets_open = Ticket.where(
       customer_id: data[:customer_id],
-      state_id: state_list_open
-    ).limit( data[:limit] || 15 ).order('created_at DESC')
+      state_id:    state_id_list_open
+    )
+    .where(access_condition)
+    .limit(data[:limit] || 15).order(created_at: :desc)
     assets = {}
     ticket_ids_open = []
     tickets_open.each do |ticket|
@@ -194,8 +199,10 @@ returns
 
     tickets_closed = Ticket.where(
       customer_id: data[:customer_id],
-      state_id: state_list_closed
-    ).limit( data[:limit] || 15 ).order('created_at DESC')
+      state_id:    state_id_list_closed
+    )
+    .where(access_condition)
+    .limit(data[:limit] || 15).order(created_at: :desc)
     ticket_ids_closed = []
     tickets_closed.each do |ticket|
       ticket_ids_closed.push ticket.id
@@ -203,9 +210,9 @@ returns
     end
 
     {
-      ticket_ids_open: ticket_ids_open,
+      ticket_ids_open:   ticket_ids_open,
       ticket_ids_closed: ticket_ids_closed,
-      assets: assets,
+      assets:            assets,
     }
   end
 end

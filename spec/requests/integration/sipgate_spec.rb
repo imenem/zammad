@@ -8,60 +8,60 @@ RSpec.describe 'Integration Sipgate', type: :request do
   let!(:customer_user1) do
     create(
       :customer_user,
-      login: 'ticket-caller_id_cti-customer1@example.com',
+      login:     'ticket-caller_id_cti-customer1@example.com',
       firstname: 'CallerId',
-      lastname: 'Customer1',
-      phone: '+49 99999 222222',
-      fax: '+49 99999 222223',
-      mobile: '+4912347114711',
-      note: 'Phone at home: +49 99999 222224',
+      lastname:  'Customer1',
+      phone:     '+49 99999 222222',
+      fax:       '+49 99999 222223',
+      mobile:    '+4912347114711',
+      note:      'Phone at home: +49 99999 222224',
     )
   end
   let!(:customer_user2) do
     create(
       :customer_user,
-      login: 'ticket-caller_id_cti-customer2@example.com',
+      login:     'ticket-caller_id_cti-customer2@example.com',
       firstname: 'CallerId',
-      lastname: 'Customer2',
-      phone: '+49 99999 222222 2',
+      lastname:  'Customer2',
+      phone:     '+49 99999 222222 2',
     )
   end
   let!(:customer_user3) do
     create(
       :customer_user,
-      login: 'ticket-caller_id_cti-customer3@example.com',
+      login:     'ticket-caller_id_cti-customer3@example.com',
       firstname: 'CallerId',
-      lastname: 'Customer3',
-      phone: '+49 99999 222222 2',
+      lastname:  'Customer3',
+      phone:     '+49 99999 222222 2',
     )
   end
 
-  before(:each) do
+  before do
     Cti::Log.destroy_all
 
     Setting.set('sipgate_integration', true)
     Setting.set('sipgate_config', {
                   outbound: {
-                    routing_table: [
+                    routing_table:     [
                       {
-                        dest: '41*',
+                        dest:      '41*',
                         caller_id: '41715880339000',
                       },
                       {
-                        dest: '491714000000',
+                        dest:      '491714000000',
                         caller_id: '41715880339000',
                       },
                     ],
                     default_caller_id: '4930777000000',
                   },
-                  inbound: {
+                  inbound:  {
                     block_caller_ids: [
                       {
                         caller_id: '491715000000',
-                        note: 'some note',
+                        note:      'some note',
                       }
                     ],
-                    notify_user_ids: {
+                    notify_user_ids:  {
                       2 => true,
                       4 => false,
                     },
@@ -78,7 +78,7 @@ RSpec.describe 'Integration Sipgate', type: :request do
       # inbound - I
       params = 'event=newCall&direction=in&from=4912347114711&to=4930600000000&callId=4991155921769858278-1&user%5B%5D=user+1&user%5B%5D=user+2'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       on_hangup = nil
       on_answer = nil
       content = @response.body
@@ -93,7 +93,7 @@ RSpec.describe 'Integration Sipgate', type: :request do
       # inbound - II - block caller
       params = 'event=newCall&direction=in&from=491715000000&to=4930600000000&callId=4991155921769858278-2&user%5B%5D=user+1&user%5B%5D=user+2'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       on_hangup = nil
       on_answer = nil
       content = @response.body
@@ -113,7 +113,7 @@ RSpec.describe 'Integration Sipgate', type: :request do
       # outbound - I - set default_caller_id
       params = 'event=newCall&direction=out&from=4930600000000&to=4912347114711&callId=8621106404543334274-3&user%5B%5D=user+1'
       post '/api/v1/sipgate/out', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       on_hangup = nil
       on_answer = nil
       caller_id = nil
@@ -138,7 +138,7 @@ RSpec.describe 'Integration Sipgate', type: :request do
       # outbound - II - set caller_id based on routing_table by explicite number
       params = 'event=newCall&direction=out&from=4930600000000&to=491714000000&callId=8621106404543334274-4&user%5B%5D=user+1'
       post '/api/v1/sipgate/out', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       on_hangup = nil
       on_answer = nil
       caller_id = nil
@@ -163,7 +163,7 @@ RSpec.describe 'Integration Sipgate', type: :request do
       # outbound - III - set caller_id based on routing_table by 41*
       params = 'event=newCall&direction=out&from=4930600000000&to=4147110000000&callId=8621106404543334274-5&user%5B%5D=user+1'
       post '/api/v1/sipgate/out', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       on_hangup = nil
       on_answer = nil
       caller_id = nil
@@ -189,7 +189,7 @@ RSpec.describe 'Integration Sipgate', type: :request do
       Setting.set('sipgate_config', {})
       params = 'event=newCall&direction=in&from=4912347114711&to=4930600000000&callId=4991155921769858278-6&user%5B%5D=user+1&user%5B%5D=user+2'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(422)
+      expect(@response).to have_http_status(:unprocessable_entity)
       error = nil
       content = @response.body
       response = REXML::Document.new(content)
@@ -205,7 +205,7 @@ RSpec.describe 'Integration Sipgate', type: :request do
       # outbound - I - new call
       params = 'event=newCall&direction=out&from=4930600000000&to=4912347114711&callId=1234567890-1&user%5B%5D=user+1'
       post '/api/v1/sipgate/out', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-1')
       expect(log).to be_truthy
       expect(log.from).to eq('4930777000000')
@@ -217,10 +217,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('newCall')
       expect(log.done).to eq(true)
 
+      travel 1.second
+
       # outbound - I - hangup by agent
       params = 'event=hangup&direction=out&callId=1234567890-1&cause=cancel'
       post '/api/v1/sipgate/out', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-1')
       expect(log).to be_truthy
       expect(log.from).to eq('4930777000000')
@@ -232,10 +234,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('hangup')
       expect(log.done).to eq(true)
 
+      travel 1.second
+
       # outbound - II - new call
       params = 'event=newCall&direction=out&from=4930600000000&to=4912347114711&callId=1234567890-2&user%5B%5D=user+1'
       post '/api/v1/sipgate/out', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-2')
       expect(log).to be_truthy
       expect(log.from).to eq('4930777000000')
@@ -246,11 +250,13 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.comment).to be_nil
       expect(log.state).to eq('newCall')
       expect(log.done).to eq(true)
+
+      travel 1.second
 
       # outbound - II - answer by customer
       params = 'event=answer&direction=out&callId=1234567890-2&from=4930600000000&to=4912347114711'
       post '/api/v1/sipgate/out', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-2')
       expect(log).to be_truthy
       expect(log.from).to eq('4930777000000')
@@ -261,11 +267,13 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.comment).to be_nil
       expect(log.state).to eq('answer')
       expect(log.done).to eq(true)
+
+      travel 1.second
 
       # outbound - II - hangup by customer
       params = 'event=hangup&direction=out&callId=1234567890-2&cause=normalClearing&from=4930600000000&to=4912347114711'
       post '/api/v1/sipgate/out', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-2')
       expect(log).to be_truthy
       expect(log.from).to eq('4930777000000')
@@ -277,10 +285,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('hangup')
       expect(log.done).to eq(true)
 
+      travel 1.second
+
       # inbound - I - new call
       params = 'event=newCall&direction=in&to=4930600000000&from=4912347114711&callId=1234567890-3&user%5B%5D=user+1'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-3')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -291,11 +301,13 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.comment).to be_nil
       expect(log.state).to eq('newCall')
       expect(log.done).to eq(false)
+
+      travel 1.second
 
       # inbound - I - answer by customer
       params = 'event=answer&direction=in&callId=1234567890-3&to=4930600000000&from=4912347114711'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-3')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -306,11 +318,13 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.comment).to be_nil
       expect(log.state).to eq('answer')
       expect(log.done).to eq(true)
+
+      travel 1.second
 
       # inbound - I - hangup by customer
       params = 'event=hangup&direction=in&callId=1234567890-3&cause=normalClearing&to=4930600000000&from=4912347114711'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-3')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -322,10 +336,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('hangup')
       expect(log.done).to eq(true)
 
+      travel 1.second
+
       # inbound - II - new call
       params = 'event=newCall&direction=in&to=4930600000000&from=4912347114711&callId=1234567890-4&user%5B%5D=user+1,user+2'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-4')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -337,10 +353,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('newCall')
       expect(log.done).to eq(false)
 
+      travel 1.second
+
       # inbound - II - answer by voicemail
       params = 'event=answer&direction=in&callId=1234567890-4&to=4930600000000&from=4912347114711&user=voicemail'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-4')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -352,10 +370,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('answer')
       expect(log.done).to eq(true)
 
+      travel 1.second
+
       # inbound - II - hangup by customer
       params = 'event=hangup&direction=in&callId=1234567890-4&cause=normalClearing&to=4930600000000&from=4912347114711'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-4')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -367,10 +387,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('hangup')
       expect(log.done).to eq(false)
 
+      travel 1.second
+
       # inbound - III - new call
       params = 'event=newCall&direction=in&to=4930600000000&from=4912347114711&callId=1234567890-5&user%5B%5D=user+1,user+2'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-5')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -382,10 +404,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('newCall')
       expect(log.done).to eq(false)
 
+      travel 1.second
+
       # inbound - III - hangup by customer
       params = 'event=hangup&direction=in&callId=1234567890-5&cause=normalClearing&to=4930600000000&from=4912347114711'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-5')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -397,10 +421,12 @@ RSpec.describe 'Integration Sipgate', type: :request do
       expect(log.state).to eq('hangup')
       expect(log.done).to eq(false)
 
+      travel 1.second
+
       # inbound - IV - new call
       params = 'event=newCall&direction=in&to=4930600000000&from=49999992222222&callId=1234567890-6&user%5B%5D=user+1,user+2'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-6')
       expect(log).to be_truthy
       expect(log.to).to eq('4930600000000')
@@ -416,11 +442,11 @@ RSpec.describe 'Integration Sipgate', type: :request do
 
       # get caller list
       get '/api/v1/cti/log'
-      expect(@response).to have_http_status(401)
+      expect(@response).to have_http_status(:unauthorized)
 
       authenticated_as(agent_user)
       get '/api/v1/cti/log', as: :json
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       expect(json_response['list']).to be_a_kind_of(Array)
       expect(json_response['list'].count).to eq(6)
       expect(json_response['assets']).to be_truthy
@@ -448,7 +474,7 @@ RSpec.describe 'Integration Sipgate', type: :request do
       # inbound - I
       params = 'event=newCall&direction=in&from=4912347114711&to=4930600000000&callId=4991155921769858278-1&user%5B%5D=user+1&user%5B%5D=user+2'
       post '/api/v1/sipgate/in', params: params
-      expect(@response).to have_http_status(200)
+      expect(@response).to have_http_status(:ok)
       on_hangup = nil
       on_answer = nil
       content = @response.body

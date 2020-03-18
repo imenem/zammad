@@ -25,8 +25,8 @@ RSpec.describe String do
       end
 
       it 'does not break on non-unicode strings' do
-        expect(String.new("\xC2\xA92011 Z ", encoding: 'ASCII-8BIT').strip)
-          .to eq(String.new("\xC2\xA92011 Z", encoding: 'ASCII-8BIT'))
+        expect(described_class.new("\xC2\xA92011 Z ", encoding: 'ASCII-8BIT').strip)
+          .to eq(described_class.new("\xC2\xA92011 Z", encoding: 'ASCII-8BIT'))
       end
     end
   end
@@ -56,9 +56,9 @@ RSpec.describe String do
       end
 
       it 'does not break on invalid-unicode strings (in place)' do
-        str = String.new("\xC2\xA92011 Z ", encoding: 'ASCII-8BIT')
+        str = described_class.new("\xC2\xA92011 Z ", encoding: 'ASCII-8BIT')
         expect(str.strip!)
-          .to be(str).and eq(String.new("\xC2\xA92011 Z", encoding: 'ASCII-8BIT'))
+          .to be(str).and eq(described_class.new("\xC2\xA92011 Z", encoding: 'ASCII-8BIT'))
       end
     end
   end
@@ -542,6 +542,18 @@ RSpec.describe String do
       TEXT
     end
 
+    context 'html encoding' do
+      it 'converts &Auml; in Ä' do
+        expect('<div>test something.&Auml;</div>'.html2text)
+          .to eq('test something.Ä')
+      end
+
+      it 'strips invalid html encoding chars' do
+        expect('<div>test something.&#55357;</div>'.html2text)
+          .to eq('test something.í ˝')
+      end
+    end
+
     context 'performance tests' do
       let(:filler) do
         %(<p>some word <a href="http://example.com?domain?example.com">some url</a> and the end.</p>\n) * 11 + "\n"
@@ -574,6 +586,7 @@ RSpec.describe String do
           </html>
         HTML
       end
+
     end
   end
 
@@ -1844,7 +1857,7 @@ RSpec.describe String do
       end
 
       context 'which are incorrectly set to other, technically valid encodings' do
-        let(:subject) { String.new('ö', encoding: 'tis-620') }
+        let(:subject) { described_class.new('ö', encoding: 'tis-620') }
 
         it 'sets input encoding to UTF-8 instead of attempting conversion' do
           expect(subject.utf8_encode).to eq(subject.dup.force_encoding('utf-8'))
@@ -1886,7 +1899,7 @@ RSpec.describe String do
             .to raise_error(Encoding::InvalidByteSequenceError)
 
           expect { subject.utf8_encode(from: 'gb2312') }
-            .not_to raise_error(Encoding::InvalidByteSequenceError)
+            .not_to raise_error
         end
 
         it 'uses the detected input encoding instead' do
@@ -1925,7 +1938,7 @@ RSpec.describe String do
         let(:input_encoding) { Encoding::ISO_8859_1 }
 
         it 'detects the input encoding' do
-          Timeout.timeout(12) do
+          Timeout.timeout(18) do
             expect(subject.utf8_encode(from: 'utf-8')).to eq(original_string)
           end
         end

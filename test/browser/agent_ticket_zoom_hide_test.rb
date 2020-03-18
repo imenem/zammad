@@ -17,25 +17,25 @@ class AgentTicketZoomHideTest < TestCase
     login(
       username: 'agent1@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
 
     # create two tickets
-    ticket1 = ticket_create(
+    ticket_create(
       data: {
         customer: 'Nico',
-        group: 'Users',
-        title: 'Ticket 1',
-        body: 'some body 123äöü - changes',
+        group:    'Users',
+        title:    'Ticket 1',
+        body:     'some body 123äöü - changes',
       }
     )
 
-    ticket2 = ticket_create(
+    ticket_create(
       data: {
         customer: 'Nico',
-        group: 'Users',
-        title: 'Ticket 2',
-        body: 'some body 123äöü - changes',
+        group:    'Users',
+        title:    'Ticket 2',
+        body:     'some body 123äöü - changes',
       }
     )
 
@@ -43,7 +43,7 @@ class AgentTicketZoomHideTest < TestCase
     ticket_update(
       data: {
         body:  'added image attachment',
-        files: [Rails.root.join('test', 'data', 'upload', 'upload2.jpg')],
+        files: [Rails.root.join('test/data/upload/upload2.jpg')],
       },
     )
 

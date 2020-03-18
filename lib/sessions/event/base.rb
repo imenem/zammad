@@ -12,7 +12,12 @@ class Sessions::Event::Base
 
     return if !self.class.instance_variable_get(:@database_connection)
 
-    ActiveRecord::Base.establish_connection
+    if ActiveRecord::Base.connected?
+      @reused_connection = true
+    else
+      @reused_connection = false
+      ActiveRecord::Base.establish_connection
+    end
   end
 
   def self.inherited(subclass)
@@ -38,7 +43,7 @@ class Sessions::Event::Base
     if !@session
       error = {
         event: 'error',
-        data: {
+        data:  {
           state: 'no_session',
         },
       }
@@ -48,7 +53,7 @@ class Sessions::Event::Base
     if !@session['id']
       error = {
         event: 'error',
-        data: {
+        data:  {
           state: 'no_session_user_id',
         },
       }
@@ -61,8 +66,8 @@ class Sessions::Event::Base
   def current_user_id
     if !@session
       error = {
-        event: "#{event}_error",
-        data: {
+        event: "#{@event}_error",
+        data:  {
           state: 'no_session',
         },
       }
@@ -71,8 +76,8 @@ class Sessions::Event::Base
     end
     if @session['id'].blank?
       error = {
-        event: "#{event}_error",
-        data: {
+        event: "#{@event}_error",
+        data:  {
           state: 'no_session_user_id',
         },
       }
@@ -90,7 +95,7 @@ class Sessions::Event::Base
     if !user
       error = {
         event: "#{event}_error",
-        data: {
+        data:  {
           state: 'no_such_user',
         },
       }
@@ -100,6 +105,14 @@ class Sessions::Event::Base
     user
   end
 
+  def remote_ip
+    @headers&.fetch('X-Forwarded-For', nil).presence
+  end
+
+  def origin
+    @headers&.fetch('Origin', nil).presence
+  end
+
   def permission_check(key, event)
     user = current_user
     return if !user
@@ -107,7 +120,7 @@ class Sessions::Event::Base
     if !user.permissions?(key)
       error = {
         event: "#{event}_error",
-        data: {
+        data:  {
           state: 'no_permission',
         },
       }
@@ -138,6 +151,7 @@ class Sessions::Event::Base
   def destroy
     return if !@is_web_socket
     return if !self.class.instance_variable_get(:@database_connection)
+    return if @reused_connection
 
     ActiveRecord::Base.remove_connection
   end

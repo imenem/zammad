@@ -7,7 +7,7 @@ namespace :zammad do
       namespace :websocket do
 
         desc 'Stops the websocket server'
-        task :stop do
+        task :stop do # rubocop:disable Rails/RakeEnvironment
 
           command = [
             'bundle',
@@ -16,7 +16,7 @@ namespace :zammad do
             'stop',
           ]
 
-          stdout, stderr, status = Open3.capture3(*command)
+          _stdout, stderr, status = Open3.capture3(*command)
 
           next if status.success?
 

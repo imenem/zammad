@@ -13,28 +13,28 @@ RSpec.describe 'Taskbars', type: :request do
 
     it 'does task ownership' do
       params = {
-        user_id: customer_user.id,
+        user_id:   customer_user.id,
         client_id: '123',
-        key: 'Ticket-5',
-        callback: 'TicketZoom',
-        state: {
-          ticket: {
+        key:       'Ticket-5',
+        callback:  'TicketZoom',
+        state:     {
+          ticket:  {
             owner_id: agent_user.id,
           },
           article: {},
         },
-        params: {
+        params:    {
           ticket_id: 5,
-          shown: true,
+          shown:     true,
         },
-        prio: 3,
-        notify: false,
-        active: false,
+        prio:      3,
+        notify:    false,
+        active:    false,
       }
 
       authenticated_as(agent_user)
       post '/api/v1/taskbar', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['client_id']).to eq('123')
       expect(json_response['user_id']).to eq(agent_user.id)
@@ -45,10 +45,10 @@ RSpec.describe 'Taskbars', type: :request do
       params[:user_id] = customer_user.id
       params[:params] = {
         ticket_id: 5,
-        shown: false,
+        shown:     false,
       }
       put "/api/v1/taskbar/#{taskbar_id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['client_id']).to eq('123')
       expect(json_response['user_id']).to eq(agent_user.id)
@@ -62,19 +62,19 @@ RSpec.describe 'Taskbars', type: :request do
 
       authenticated_as(customer_user)
       put "/api/v1/taskbar/#{taskbar_id}", params: params, as: :json
-      expect(response).to have_http_status(422)
+      expect(response).to have_http_status(:unprocessable_entity)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['error']).to eq('Not allowed to access this task.')
 
       delete "/api/v1/taskbar/#{taskbar_id}", params: {}, as: :json
-      expect(response).to have_http_status(422)
+      expect(response).to have_http_status(:unprocessable_entity)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['error']).to eq('Not allowed to access this task.')
 
       # delete with correct user
       authenticated_as(agent_user)
       delete "/api/v1/taskbar/#{taskbar_id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response).to be_blank
     end

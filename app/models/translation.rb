@@ -75,13 +75,13 @@ push translations to online
     result = UserAgent.post(
       url,
       {
-        locale: locale,
-        translations: translations_to_push,
-        fqdn: Setting.get('fqdn'),
+        locale:         locale,
+        translations:   translations_to_push,
+        fqdn:           Setting.get('fqdn'),
         translator_key: translator_key,
       },
       {
-        json: true,
+        json:         true,
         open_timeout: 8,
         read_timeout: 24,
       }
@@ -90,7 +90,7 @@ push translations to online
 
     # set new translator_key if given
     if result.data['translator_key']
-      translator_key = Setting.set('translator_key', result.data['translator_key'])
+      Setting.set('translator_key', result.data['translator_key'])
     end
 
     true
@@ -147,7 +147,6 @@ get list of translations
                      Translation.where(locale: locale.downcase).where.not(target: '').order(:source)
                    end
     translations.each do |item|
-      translation_item = []
       translation_item = if admin
                            [
                              item.id,
@@ -215,6 +214,91 @@ translate strings in ruby context, e. g. for notifications
 
 =begin
 
+translate timestampes in ruby context, e. g. for notifications
+
+  translated = Translation.timestamp('de-de', 'Europe/Berlin', '2018-10-10T10:00:00Z0')
+
+or
+
+  translated = Translation.timestamp('de-de', 'Europe/Berlin', Time.zone.parse('2018-10-10T10:00:00Z0'))
+
+=end
+
+  def self.timestamp(locale, timezone, timestamp)
+
+    if timestamp.class == String
+      begin
+        timestamp_parsed = Time.zone.parse(timestamp)
+        return timestamp.to_s if !timestamp_parsed
+
+        timestamp = timestamp_parsed
+      rescue
+        return timestamp.to_s
+      end
+    end
+
+    begin
+      timestamp = timestamp.in_time_zone(timezone)
+    rescue
+      return timestamp.to_s
+    end
+
+    record = Translation.where(locale: locale, source: 'timestamp', format: 'time').pluck(:target).first
+    return timestamp.to_s if !record
+
+    record.sub!('dd', format('%<day>02d', day: timestamp.day))
+    record.sub!('d', timestamp.day.to_s)
+    record.sub!('mm', format('%<month>02d', month: timestamp.month))
+    record.sub!('m', timestamp.month.to_s)
+    record.sub!('yyyy', timestamp.year.to_s)
+    record.sub!('yy', timestamp.year.to_s.last(2))
+    record.sub!('SS', format('%<second>02d', second: timestamp.sec.to_s))
+    record.sub!('MM', format('%<minute>02d', minute: timestamp.min.to_s))
+    record.sub!('HH', format('%<hour>02d', hour: timestamp.hour.to_s))
+    "#{record} (#{timezone})"
+  end
+
+=begin
+
+translate date in ruby context, e. g. for notifications
+
+  translated = Translation.date('de-de', '2018-10-10')
+
+or
+
+  translated = Translation.date('de-de', Date.parse('2018-10-10'))
+
+=end
+
+  def self.date(locale, date)
+
+    if date.class == String
+      begin
+        date_parsed = Date.parse(date)
+        return date.to_s if !date_parsed
+
+        date = date_parsed
+      rescue
+        return date.to_s
+      end
+    end
+
+    return date.to_s if date.class != Date
+
+    record = Translation.where(locale: locale, source: 'date', format: 'time').pluck(:target).first
+    return date.to_s if !record
+
+    record.sub!('dd', format('%<day>02d', day: date.day))
+    record.sub!('d', date.day.to_s)
+    record.sub!('mm', format('%<month>02d', month: date.month))
+    record.sub!('m', date.month.to_s)
+    record.sub!('yyyy', date.year.to_s)
+    record.sub!('yy', date.year.to_s.last(2))
+    record
+  end
+
+=begin
+
 load translations from local
 
 all:
@@ -229,7 +313,7 @@ all:
 
   def self.load_from_file(dedicated_locale = nil)
     version = Version.get
-    directory = Rails.root.join('config', 'translations')
+    directory = Rails.root.join('config/translations')
     locals_to_sync(dedicated_locale).each do |locale|
       file = Rails.root.join(directory, "#{locale}-#{version}.yml")
       return false if !File.exist?(file)
@@ -267,14 +351,14 @@ all:
           version: version,
         },
         {
-          json: true,
+          json:         true,
           open_timeout: 8,
           read_timeout: 24,
         }
       )
       raise "Can't load translations from #{url}: #{result.error}" if !result.success?
 
-      directory = Rails.root.join('config', 'translations')
+      directory = Rails.root.join('config/translations')
       if !File.directory?(directory)
         Dir.mkdir(directory, 0o755)
       end
@@ -321,7 +405,7 @@ Get source file at https://i18n.zammad.com/api/v1/translations_empty_translation
       col_sep: ',',
     }
     rows = ::CSV.parse(content, params)
-    header = rows.shift
+    rows.shift  # remove header
 
     translation_raw = []
     rows.each do |row|
@@ -332,7 +416,7 @@ Get source file at https://i18n.zammad.com/api/v1/translations_empty_translation
         next
       end
       raise "Can't import translation, format is missing" if row[2].blank?
-      raise "Can't import translation, format is invalid (#{row[2]})" if row[2] !~ /^(time|string)$/
+      raise "Can't import translation, format is invalid (#{row[2]})" if !row[2].match?(/^(time|string)$/)
 
       item = {
         'locale'         => locale.locale,

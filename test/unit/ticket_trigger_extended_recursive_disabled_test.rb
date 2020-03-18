@@ -7,50 +7,50 @@ class TicketTriggerExtendedRecursiveDisabledTest < ActiveSupport::TestCase
   end
 
   test 'recursive trigger' do
-    trigger1 = Trigger.create!(
-      name: '1) set prio to 3 high',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '1) set prio to 3 high',
+      condition:            {
+        'ticket.action'   => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'new').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'new').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger2 = Trigger.create!(
-      name: '2) set state to closed',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '2) set state to closed',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.state_id' => {
           'value' => Ticket::State.lookup(name: 'closed').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = 'From: me@example.com
@@ -59,7 +59,7 @@ Subject: some new subject
 
 Some Text'
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal('some new subject', ticket_p.title)
     assert_equal('Users', ticket_p.group.name)
     assert_equal('3 high', ticket_p.priority.name)
@@ -69,67 +69,67 @@ Some Text'
   end
 
   test 'recursive trigger - loop test' do
-    trigger1 = Trigger.create!(
-      name: '1) set prio to 3 high',
-      condition: {
+    Trigger.create!(
+      name:                 '1) set prio to 3 high',
+      condition:            {
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
-        'ticket.state_id' => {
+        'ticket.state_id'    => {
           'value' => Ticket::State.lookup(name: 'closed').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger2 = Trigger.create!(
-      name: '2) set prio to 1 low',
-      condition: {
+    Trigger.create!(
+      name:                 '2) set prio to 1 low',
+      condition:            {
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '1 low').id.to_s,
         },
-        'ticket.state_id' => {
+        'ticket.state_id'    => {
           'value' => Ticket::State.lookup(name: 'open').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger3 = Trigger.create!(
-      name: '3) set prio to 3 high',
-      condition: {
+    Trigger.create!(
+      name:                 '3) set prio to 3 high',
+      condition:            {
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '1 low').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '1 low').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = 'From: me@example.com
@@ -138,7 +138,7 @@ Subject: some new subject
 
 Some Text'
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal('some new subject', ticket_p.title)
     assert_equal('Users', ticket_p.group.name)
     assert_equal('2 normal', ticket_p.priority.name)
@@ -148,77 +148,77 @@ Some Text'
   end
 
   test 'recursive trigger - 2 trigger will not trigger next trigger' do
-    trigger1 = Trigger.create!(
-      name: '1) set prio to 3 high',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '1) set prio to 3 high',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger2 = Trigger.create!(
-      name: '2) set state to open',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '2) set state to open',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.state_id' => {
           'value' => Ticket::State.lookup(name: 'open').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger3 = Trigger.create!(
-      name: '3) set state to closed',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '3) set state to closed',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
-        'ticket.state_id' => {
+        'ticket.state_id'    => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'open').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'open').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.state_id' => {
           'value' => Ticket::State.lookup(name: 'closed').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = 'From: me@example.com
@@ -227,7 +227,7 @@ Subject: some new subject
 
 Some Text'
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal('some new subject', ticket_p.title)
     assert_equal('Users', ticket_p.group.name)
     assert_equal('3 high', ticket_p.priority.name)
@@ -238,73 +238,73 @@ Some Text'
   end
 
   test 'recursive trigger - 2 trigger will trigger next trigger - case 1' do
-    trigger1 = Trigger.create!(
-      name: '1) set state to closed',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '1) set state to closed',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
-        'ticket.state_id' => {
+        'ticket.state_id'    => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'open').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'open').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.state_id' => {
           'value' => Ticket::State.lookup(name: 'closed').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger2 = Trigger.create!(
-      name: '2) set prio to 3 high',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '2) set prio to 3 high',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger3 = Trigger.create!(
-      name: '3) set state to open',
-      condition: {
+    Trigger.create!(
+      name:                 '3) set state to open',
+      condition:            {
         'ticket.action' => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
       },
-      perform: {
+      perform:              {
         'ticket.state_id' => {
           'value' => Ticket::State.lookup(name: 'open').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = 'From: me@example.com
@@ -313,7 +313,7 @@ Subject: some new subject
 
 Some Text'
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
 
     assert_equal('some new subject', ticket_p.title)
     assert_equal('Users', ticket_p.group.name)
@@ -324,77 +324,77 @@ Some Text'
   end
 
   test 'recursive trigger - 2 trigger will trigger next trigger - case 2' do
-    trigger1 = Trigger.create!(
-      name: '1) set prio to 3 high',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '1) set prio to 3 high',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
-        'ticket.state_id' => {
+        'ticket.state_id'    => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'closed').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'closed').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger2 = Trigger.create!(
-      name: '2) set state to closed',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '2) set state to closed',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
-        'ticket.state_id' => {
+        'ticket.state_id'    => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'open').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'open').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.state_id' => {
           'value' => Ticket::State.lookup(name: 'closed').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
-    trigger3 = Trigger.create!(
-      name: '3) set state to open',
-      condition: {
+    Trigger.create!(
+      name:                 '3) set state to open',
+      condition:            {
         'ticket.action' => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
       },
-      perform: {
+      perform:              {
         'ticket.state_id' => {
           'value' => Ticket::State.lookup(name: 'open').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = 'From: me@example.com
@@ -403,7 +403,7 @@ Subject: some new subject
 
 Some Text'
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, email_raw_string)
 
     assert_equal('some new subject', ticket_p.title)
     assert_equal('Users', ticket_p.group.name)
@@ -417,108 +417,108 @@ Some Text'
   test 'trigger based move and verify correct agent notifications' do
 
     group1 = Group.create!(
-      name: 'Group 1',
-      active: true,
+      name:          'Group 1',
+      active:        true,
       email_address: EmailAddress.first,
       created_by_id: 1,
       updated_by_id: 1,
     )
     group2 = Group.create!(
-      name: 'Group 2',
-      active: true,
+      name:          'Group 2',
+      active:        true,
       email_address: EmailAddress.first,
       created_by_id: 1,
       updated_by_id: 1,
     )
     group3 = Group.create!(
-      name: 'Group 3',
-      active: true,
+      name:          'Group 3',
+      active:        true,
       email_address: EmailAddress.first,
       created_by_id: 1,
       updated_by_id: 1,
     )
     roles = Role.where(name: 'Agent')
     user1 = User.create!(
-      login: 'trigger1@example.org',
-      firstname: 'trigger1',
-      lastname: 'trigger1',
-      email: 'trigger1@example.org',
-      password: 'some_pass',
-      active: true,
-      groups: [group1],
-      roles: roles,
+      login:         'trigger1@example.org',
+      firstname:     'trigger1',
+      lastname:      'trigger1',
+      email:         'trigger1@example.org',
+      password:      'some_pass',
+      active:        true,
+      groups:        [group1],
+      roles:         roles,
       created_by_id: 1,
       updated_by_id: 1,
     )
     user2 = User.create!(
-      login: 'trigger2@example.org',
-      firstname: 'trigger2',
-      lastname: 'trigger2',
-      email: 'trigger2@example.org',
-      password: 'some_pass',
-      active: true,
-      groups: [group2],
-      roles: roles,
+      login:         'trigger2@example.org',
+      firstname:     'trigger2',
+      lastname:      'trigger2',
+      email:         'trigger2@example.org',
+      password:      'some_pass',
+      active:        true,
+      groups:        [group2],
+      roles:         roles,
       created_by_id: 1,
       updated_by_id: 1,
     )
 
     # trigger, move ticket created in group1 into group3 and then into group2
-    trigger1 = Trigger.create_or_update(
-      name: '1 dispatch',
-      condition: {
-        'ticket.action' => {
+    Trigger.create_or_update(
+      name:                 '1 dispatch',
+      condition:            {
+        'ticket.action'   => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.group_id' => {
           'operator' => 'is',
-          'value' => group3.id.to_s,
+          'value'    => group3.id.to_s,
         },
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'new').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'new').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.group_id' => {
           'value' => group2.id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
-    trigger2 = Trigger.create_or_update(
-      name: '2 dispatch',
-      condition: {
-        'ticket.action' => {
+    Trigger.create_or_update(
+      name:                 '2 dispatch',
+      condition:            {
+        'ticket.action'   => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'new').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'new').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.group_id' => {
           'value' => group3.id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     ticket1 = Ticket.create!(
-      title: '123',
-      group: group1,
-      customer_id: 2,
-      state: Ticket::State.lookup(name: 'new'),
-      priority: Ticket::Priority.lookup(name: '2 normal'),
+      title:         '123',
+      group:         group1,
+      customer_id:   2,
+      state:         Ticket::State.lookup(name: 'new'),
+      priority:      Ticket::Priority.lookup(name: '2 normal'),
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -528,16 +528,16 @@ Some Text'
     assert_equal(ticket1.group.name, group1.name)
     assert_equal(ticket1.state.name, 'new')
 
-    article_inbound1 = Ticket::Article.create!(
-      ticket_id: ticket1.id,
-      from: 'some_sender@example.com',
-      to: 'some_recipient@example.com',
-      subject: 'some subject',
-      message_id: 'some@id',
-      body: 'some message',
-      internal: false,
-      sender: Ticket::Article::Sender.find_by(name: 'Customer'),
-      type: Ticket::Article::Type.find_by(name: 'email'),
+    Ticket::Article.create!(
+      ticket_id:     ticket1.id,
+      from:          'some_sender@example.com',
+      to:            'some_recipient@example.com',
+      subject:       'some subject',
+      message_id:    'some@id',
+      body:          'some message',
+      internal:      false,
+      sender:        Ticket::Article::Sender.find_by(name: 'Customer'),
+      type:          Ticket::Article::Type.find_by(name: 'email'),
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -567,79 +567,79 @@ Some Text'
   end
 
   test 'recursive trigger loop check' do
-    trigger0 = Trigger.create!(
-      name: '000',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '000',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '1 low').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '1 low').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.state_id' => {
           'value' => Ticket::State.lookup(name: 'closed').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
-    trigger1 = Trigger.create!(
-      name: '001',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '001',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '1 low').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
-    trigger2 = Trigger.create!(
-      name: '002',
-      condition: {
-        'ticket.action' => {
+    Trigger.create!(
+      name:                 '002',
+      condition:            {
+        'ticket.action'      => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.priority_id' => {
           'operator' => 'is',
-          'value' => Ticket::Priority.lookup(name: '2 normal').id.to_s,
+          'value'    => Ticket::Priority.lookup(name: '2 normal').id.to_s,
         },
       },
-      perform: {
+      perform:              {
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
     group1 = Group.find_by(name: 'Users')
     ticket1 = Ticket.create!(
-      title: '123',
-      group: group1,
-      customer_id: 2,
-      state: Ticket::State.lookup(name: 'new'),
-      priority: Ticket::Priority.lookup(name: '2 normal'),
+      title:         '123',
+      group:         group1,
+      customer_id:   2,
+      state:         Ticket::State.lookup(name: 'new'),
+      priority:      Ticket::Priority.lookup(name: '2 normal'),
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -649,16 +649,16 @@ Some Text'
     assert_equal(ticket1.group.name, group1.name)
     assert_equal(ticket1.state.name, 'new')
 
-    article_inbound1 = Ticket::Article.create!(
-      ticket_id: ticket1.id,
-      from: 'some_sender@example.com',
-      to: 'some_recipient@example.com',
-      subject: 'some subject',
-      message_id: 'some@id',
-      body: 'some message',
-      internal: false,
-      sender: Ticket::Article::Sender.find_by(name: 'Customer'),
-      type: Ticket::Article::Type.find_by(name: 'email'),
+    Ticket::Article.create!(
+      ticket_id:     ticket1.id,
+      from:          'some_sender@example.com',
+      to:            'some_recipient@example.com',
+      subject:       'some subject',
+      message_id:    'some@id',
+      body:          'some message',
+      internal:      false,
+      sender:        Ticket::Article::Sender.find_by(name: 'Customer'),
+      type:          Ticket::Article::Type.find_by(name: 'email'),
       updated_by_id: 1,
       created_by_id: 1,
     )

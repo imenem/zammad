@@ -55,10 +55,7 @@ module CreatesTicketArticles
 
     # find attachments in upload cache
     if form_id
-      article.attachments = Store.list(
-        object: 'UploadCache',
-        o_id: form_id,
-      )
+      article.attachments = UploadCache.new(form_id).attachments
     end
 
     # set subtype of present
@@ -69,10 +66,10 @@ module CreatesTicketArticles
     # store inline attachments
     attachments_inline.each do |attachment|
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: attachment[:data],
-        filename: attachment[:filename],
+        object:      'Ticket::Article',
+        o_id:        article.id,
+        data:        attachment[:data],
+        filename:    attachment[:filename],
         preferences: attachment[:preferences],
       )
     end
@@ -82,14 +79,14 @@ module CreatesTicketArticles
       params[:attachments].each_with_index do |attachment, index|
 
         # validation
-        ['mime-type', 'filename', 'data'].each do |key|
+        %w[mime-type filename data].each do |key|
           next if attachment[key]
 
           raise Exceptions::UnprocessableEntity, "Attachment needs '#{key}' param for attachment with index '#{index}'"
         end
 
         preferences = {}
-        ['charset', 'mime-type'].each do |key|
+        %w[charset mime-type].each do |key|
           next if !attachment[key]
 
           store_key = key.tr('-', '_').camelize.gsub(/(.+)([A-Z])/, '\1_\2').tr('_', '-')
@@ -99,15 +96,15 @@ module CreatesTicketArticles
         begin
           base64_data = attachment[:data].gsub(/[\r\n]/, '')
           attachment_data = Base64.strict_decode64(base64_data)
-        rescue ArgumentError => e
+        rescue ArgumentError
           raise Exceptions::UnprocessableEntity, "Invalid base64 for attachment with index '#{index}'"
         end
 
         Store.add(
-          object: 'Ticket::Article',
-          o_id: article.id,
-          data: attachment_data,
-          filename: attachment[:filename],
+          object:      'Ticket::Article',
+          o_id:        article.id,
+          data:        attachment_data,
+          filename:    attachment[:filename],
           preferences: preferences,
         )
       end
@@ -116,9 +113,9 @@ module CreatesTicketArticles
     # account time
     if time_unit.present?
       Ticket::TimeAccounting.create!(
-        ticket_id: article.ticket_id,
+        ticket_id:         article.ticket_id,
         ticket_article_id: article.id,
-        time_unit: time_unit
+        time_unit:         time_unit
       )
     end
 
@@ -130,11 +127,8 @@ module CreatesTicketArticles
       .first { |taskbar| taskbar.persisted_form_id == form_id }
       &.update!(state: {})
 
-    # remove attachments from upload cache
-    Store.remove(
-      object: 'UploadCache',
-      o_id: form_id,
-    )
+    # remove temporary attachment cache
+    UploadCache.new(form_id).destroy
 
     article
   end

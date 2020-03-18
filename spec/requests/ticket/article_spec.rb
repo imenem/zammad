@@ -1,10 +1,12 @@
 require 'rails_helper'
 
-RSpec.describe 'Ticket Article', type: :request do
+RSpec.describe 'Ticket Article API endpoints', type: :request do
 
   let(:admin_user) do
-    create(:admin_user)
+    create(:admin_user, groups: Group.all)
   end
+  let!(:group) { create(:group) }
+
   let(:agent_user) do
     create(:agent_user, groups: Group.all)
   end
@@ -16,25 +18,25 @@ RSpec.describe 'Ticket Article', type: :request do
 
     it 'does ticket create with agent and articles' do
       params = {
-        title: 'a new ticket #1',
-        group: 'Users',
+        title:       'a new ticket #1',
+        group:       'Users',
         customer_id: customer_user.id,
-        article: {
+        article:     {
           body: 'some body',
         }
       }
       authenticated_as(agent_user)
       post '/api/v1/tickets', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
 
       params = {
-        ticket_id: json_response['id'],
+        ticket_id:    json_response['id'],
         content_type: 'text/plain', # or text/html
-        body: 'some body',
-        type: 'note',
+        body:         'some body',
+        type:         'note',
       }
       post '/api/v1/ticket_articles', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['subject']).to be_nil
       expect(json_response['body']).to eq('some body')
@@ -48,18 +50,18 @@ RSpec.describe 'Ticket Article', type: :request do
       expect(ticket.articles[1].attachments.count).to eq(0)
 
       params = {
-        ticket_id: json_response['ticket_id'],
+        ticket_id:    json_response['ticket_id'],
         content_type: 'text/html', # or text/html
-        body: 'some body <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA
+        body:         'some body <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA
 AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
 9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red dot" />',
-        type: 'note',
+        type:         'note',
       }
       post '/api/v1/ticket_articles', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['subject']).to be_nil
-      expect(json_response['body']).to_not match(/some body <img src="cid:.+?/)
+      expect(json_response['body']).not_to match(/some body <img src="cid:.+?/)
       expect(json_response['body']).to match(%r{some body <img src="/api/v1/ticket_attachment/.+?" alt="Red dot"})
       expect(json_response['content_type']).to eq('text/html')
       expect(json_response['updated_by_id']).to eq(agent_user.id)
@@ -77,18 +79,18 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       expect(ticket.articles[2].attachments[0]['preferences']['Content-ID']).to match(/@zammad.example.com/)
 
       params = {
-        ticket_id: json_response['ticket_id'],
+        ticket_id:    json_response['ticket_id'],
         content_type: 'text/html', # or text/html
-        body: 'some body',
-        type: 'note',
-        attachments: [
-          'filename' => 'some_file.txt',
-          'data' => 'dGVzdCAxMjM=',
+        body:         'some body',
+        type:         'note',
+        attachments:  [
+          'filename'  => 'some_file.txt',
+          'data'      => 'dGVzdCAxMjM=',
           'mime-type' => 'text/plain',
         ],
       }
       post '/api/v1/ticket_articles', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['subject']).to be_nil
       expect(json_response['body']).to eq('some body')
@@ -103,7 +105,7 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       expect(ticket.articles[3].attachments.count).to eq(1)
 
       get "/api/v1/ticket_articles/#{json_response['id']}?expand=true", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['attachments'].count).to eq(1)
       expect(json_response['attachments'][0]['id']).to be_truthy
@@ -112,16 +114,16 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       expect(json_response['attachments'][0]['preferences']['Mime-Type']).to eq('text/plain')
 
       params = {
-        ticket_id: json_response['ticket_id'],
+        ticket_id:    json_response['ticket_id'],
         content_type: 'text/plain',
-        body: 'some body',
-        type: 'note',
-        preferences: {
+        body:         'some body',
+        type:         'note',
+        preferences:  {
           some_key1: 123,
         },
       }
       post '/api/v1/ticket_articles', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['subject']).to be_nil
       expect(json_response['body']).to eq('some body')
@@ -132,13 +134,13 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       expect(ticket.articles.count).to eq(5)
 
       params = {
-        body: 'some body 2',
+        body:        'some body 2',
         preferences: {
           some_key2: 'abc',
         },
       }
       put "/api/v1/ticket_articles/#{json_response['id']}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['subject']).to be_nil
       expect(json_response['body']).to eq('some body 2')
@@ -152,24 +154,24 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
 
     it 'does ticket create with customer and articles' do
       params = {
-        title: 'a new ticket #2',
-        group: 'Users',
+        title:   'a new ticket #2',
+        group:   'Users',
         article: {
           body: 'some body',
         }
       }
       authenticated_as(customer_user)
       post '/api/v1/tickets', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
 
       params = {
-        ticket_id: json_response['id'],
+        ticket_id:    json_response['id'],
         content_type: 'text/plain', # or text/html
-        body: 'some body',
-        type: 'note',
+        body:         'some body',
+        type:         'note',
       }
       post '/api/v1/ticket_articles', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['subject']).to be_nil
       expect(json_response['body']).to eq('some body')
@@ -184,14 +186,14 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       expect(ticket.articles[1].attachments.count).to eq(0)
 
       params = {
-        ticket_id: json_response['ticket_id'],
+        ticket_id:    json_response['ticket_id'],
         content_type: 'text/plain', # or text/html
-        body: 'some body',
-        sender: 'Agent',
-        type: 'note',
+        body:         'some body',
+        sender:       'Agent',
+        type:         'note',
       }
       post '/api/v1/ticket_articles', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['subject']).to be_nil
       expect(json_response['body']).to eq('some body')
@@ -208,15 +210,15 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       expect(ticket.articles[2].attachments.count).to eq(0)
 
       params = {
-        ticket_id: json_response['ticket_id'],
+        ticket_id:    json_response['ticket_id'],
         content_type: 'text/plain', # or text/html
-        body: 'some body 2',
-        sender: 'Agent',
-        type: 'note',
-        internal: true,
+        body:         'some body 2',
+        sender:       'Agent',
+        type:         'note',
+        internal:     true,
       }
       post '/api/v1/ticket_articles', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['subject']).to be_nil
       expect(json_response['body']).to eq('some body 2')
@@ -237,9 +239,9 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       article = create(
         :ticket_article,
         ticket_id: ticket.id,
-        internal: true,
-        sender: Ticket::Article::Sender.find_by(name: 'Agent'),
-        type: Ticket::Article::Type.find_by(name: 'note'),
+        internal:  true,
+        sender:    Ticket::Article::Sender.find_by(name: 'Agent'),
+        type:      Ticket::Article::Type.find_by(name: 'note'),
       )
       expect(ticket.articles.count).to eq(5)
       expect(ticket.articles[4].sender.name).to eq('Agent')
@@ -252,12 +254,12 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       expect(ticket.articles[4].attachments.count).to eq(0)
 
       get "/api/v1/ticket_articles/#{article.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['error']).to eq('Not authorized')
 
       put "/api/v1/ticket_articles/#{article.id}", params: { internal: false }, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['error']).to eq('Not authorized')
 
@@ -265,63 +267,67 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
 
     it 'does create phone ticket for customer and expected origin_by_id' do
       params = {
-        title: 'a new ticket #1',
-        group: 'Users',
+        title:       'a new ticket #1',
+        group:       'Users',
         customer_id: customer_user.id,
-        article: {
-          body: 'some body',
+        article:     {
+          body:   'some body',
           sender: 'Customer',
-          type: 'phone',
+          type:   'phone',
         }
       }
       authenticated_as(agent_user)
       post '/api/v1/tickets', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['title']).to eq('a new ticket #1')
 
-      article = Ticket::Article.find_by(ticket_id: json_response['id'])
+      expect(Ticket::Article.where(ticket_id: json_response['id']).count).to eq(2) # original + auto responder
+
+      article = Ticket::Article.where(ticket_id: json_response['id']).first
       expect(article.origin_by_id).to eq(customer_user.id)
       expect(article.from).to eq("#{customer_user.firstname} #{customer_user.lastname} <#{customer_user.email}>")
     end
 
     it 'does create phone ticket by customer and manipulate origin_by_id' do
       params = {
-        title: 'a new ticket #1',
-        group: 'Users',
+        title:       'a new ticket #1',
+        group:       'Users',
         customer_id: customer_user.id,
-        article: {
-          body: 'some body',
-          sender: 'Customer',
-          type: 'phone',
+        article:     {
+          body:         'some body',
+          sender:       'Customer',
+          type:         'phone',
           origin_by_id: 1,
         }
       }
       authenticated_as(customer_user)
       post '/api/v1/tickets', params: params, as: :json
-      expect(response).to have_http_status(201)
+      expect(response).to have_http_status(:created)
       expect(json_response).to be_a_kind_of(Hash)
 
-      article = Ticket::Article.find_by(ticket_id: json_response['id'])
+      expect(Ticket::Article.where(ticket_id: json_response['id']).count).to eq(1) # ony original
+
+      article = Ticket::Article.where(ticket_id: json_response['id']).first
       expect(article.origin_by_id).to eq(customer_user.id)
     end
 
     it 'does ticket split with html - check attachments' do
-      ticket = create(:ticket)
+      ticket = create(:ticket, group: group)
       article = create(
         :ticket_article,
-        ticket_id: ticket.id,
-        type: Ticket::Article::Type.lookup(name: 'note'),
-        sender: Ticket::Article::Sender.lookup(name: 'Customer'),
-        body: '<b>test</b> <img src="cid:15.274327094.140938@ZAMMAD.example.com"/> test <img src="cid:15.274327094.140938.3@ZAMMAD.example.com"/>',
+        ticket_id:    ticket.id,
+        type:         Ticket::Article::Type.lookup(name: 'note'),
+        sender:       Ticket::Article::Sender.lookup(name: 'Customer'),
+        body:         '<b>test</b> <img src="cid:15.274327094.140938@ZAMMAD.example.com"/> test <img src="cid:15.274327094.140938.3@ZAMMAD.example.com"/>',
         content_type: 'text/html',
       )
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: 'content_file1_normally_should_be_an_image',
-        filename: 'some_file1.jpg',
-        preferences: {
+        object:        'Ticket::Article',
+        o_id:          article.id,
+        data:          'content_file1_normally_should_be_an_image',
+        filename:      'some_file1.jpg',
+        preferences:   {
           'Content-Type'        => 'image/jpeg',
           'Mime-Type'           => 'image/jpeg',
           'Content-ID'          => '15.274327094.140938@zammad.example.com',
@@ -330,11 +336,11 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
         created_by_id: 1,
       )
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: 'content_file2_normally_should_be_an_image',
-        filename: 'some_file2.jpg',
-        preferences: {
+        object:        'Ticket::Article',
+        o_id:          article.id,
+        data:          'content_file2_normally_should_be_an_image',
+        filename:      'some_file2.jpg',
+        preferences:   {
           'Content-Type'        => 'image/jpeg',
           'Mime-Type'           => 'image/jpeg',
           'Content-ID'          => '15.274327094.140938.2@zammad.example.com',
@@ -343,35 +349,35 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
         created_by_id: 1,
       )
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: 'content_file3_normally_should_be_an_image',
-        filename: 'some_file3.jpg',
-        preferences: {
-          'Content-Type'        => 'image/jpeg',
-          'Mime-Type'           => 'image/jpeg',
-          'Content-ID'          => '15.274327094.140938.3@zammad.example.com',
+        object:        'Ticket::Article',
+        o_id:          article.id,
+        data:          'content_file3_normally_should_be_an_image',
+        filename:      'some_file3.jpg',
+        preferences:   {
+          'Content-Type' => 'image/jpeg',
+          'Mime-Type'    => 'image/jpeg',
+          'Content-ID'   => '15.274327094.140938.3@zammad.example.com',
         },
         created_by_id: 1,
       )
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: 'content_file4_normally_should_be_an_image',
-        filename: 'some_file4.jpg',
-        preferences: {
-          'Content-Type'        => 'image/jpeg',
-          'Mime-Type'           => 'image/jpeg',
-          'Content-ID'          => '15.274327094.140938.4@zammad.example.com',
+        object:        'Ticket::Article',
+        o_id:          article.id,
+        data:          'content_file4_normally_should_be_an_image',
+        filename:      'some_file4.jpg',
+        preferences:   {
+          'Content-Type' => 'image/jpeg',
+          'Mime-Type'    => 'image/jpeg',
+          'Content-ID'   => '15.274327094.140938.4@zammad.example.com',
         },
         created_by_id: 1,
       )
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: 'content_file1_normally_should_be_an_pdf',
-        filename: 'Rechnung_RE-2018-200.pdf',
-        preferences: {
+        object:        'Ticket::Article',
+        o_id:          article.id,
+        data:          'content_file1_normally_should_be_an_pdf',
+        filename:      'Rechnung_RE-2018-200.pdf',
+        preferences:   {
           'Content-Type'        => 'application/octet-stream; name="Rechnung_RE-2018-200.pdf"',
           'Mime-Type'           => 'application/octet-stream',
           'Content-ID'          => '8AB0BEC88984EE4EBEF643C79C8E0346@zammad.example.com',
@@ -386,13 +392,13 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       }
       authenticated_as(agent_user)
       post "/api/v1/ticket_attachment_upload_clone_by_article/#{article.id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['attachments']).to be_truthy
       expect(json_response['attachments'].count).to eq(3)
 
       post "/api/v1/ticket_attachment_upload_clone_by_article/#{article.id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['attachments']).to be_truthy
       expect(json_response['attachments'].count).to eq(0)
@@ -401,25 +407,26 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
     it 'does ticket split with plain - check attachments' do
       ticket = create(
         :ticket,
+        group:         group,
         updated_by_id: agent_user.id,
         created_by_id: agent_user.id,
       )
       article = create(
         :ticket_article,
-        ticket_id: ticket.id,
-        type: Ticket::Article::Type.lookup(name: 'note'),
-        sender: Ticket::Article::Sender.lookup(name: 'Customer'),
-        body: '<b>test</b> <img src="cid:15.274327094.140938@zammad.example.com"/>',
-        content_type: 'text/plain',
+        ticket_id:     ticket.id,
+        type:          Ticket::Article::Type.lookup(name: 'note'),
+        sender:        Ticket::Article::Sender.lookup(name: 'Customer'),
+        body:          '<b>test</b> <img src="cid:15.274327094.140938@zammad.example.com"/>',
+        content_type:  'text/plain',
         updated_by_id: 1,
         created_by_id: 1,
       )
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: 'content_file1_normally_should_be_an_image',
-        filename: 'some_file1.jpg',
-        preferences: {
+        object:        'Ticket::Article',
+        o_id:          article.id,
+        data:          'content_file1_normally_should_be_an_image',
+        filename:      'some_file1.jpg',
+        preferences:   {
           'Content-Type'        => 'image/jpeg',
           'Mime-Type'           => 'image/jpeg',
           'Content-ID'          => '15.274327094.140938@zammad.example.com',
@@ -428,11 +435,11 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
         created_by_id: 1,
       )
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: 'content_file1_normally_should_be_an_image',
-        filename: 'some_file2.jpg',
-        preferences: {
+        object:        'Ticket::Article',
+        o_id:          article.id,
+        data:          'content_file1_normally_should_be_an_image',
+        filename:      'some_file2.jpg',
+        preferences:   {
           'Content-Type'        => 'image/jpeg',
           'Mime-Type'           => 'image/jpeg',
           'Content-ID'          => '15.274327094.140938.2@zammad.example.com',
@@ -441,11 +448,11 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
         created_by_id: 1,
       )
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: 'content_file1_normally_should_be_an_pdf',
-        filename: 'Rechnung_RE-2018-200.pdf',
-        preferences: {
+        object:        'Ticket::Article',
+        o_id:          article.id,
+        data:          'content_file1_normally_should_be_an_pdf',
+        filename:      'Rechnung_RE-2018-200.pdf',
+        preferences:   {
           'Content-Type'        => 'application/octet-stream; name="Rechnung_RE-2018-200.pdf"',
           'Mime-Type'           => 'application/octet-stream',
           'Content-ID'          => '8AB0BEC88984EE4EBEF643C79C8E0346@zammad.example.com',
@@ -460,16 +467,65 @@ AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
       }
       authenticated_as(agent_user)
       post "/api/v1/ticket_attachment_upload_clone_by_article/#{article.id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['attachments']).to be_truthy
       expect(json_response['attachments'].count).to eq(3)
 
       post "/api/v1/ticket_attachment_upload_clone_by_article/#{article.id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['attachments']).to be_truthy
       expect(json_response['attachments'].count).to eq(0)
+    end
+  end
+
+  describe 'DELETE /api/v1/ticket_articles/:id' do
+
+    let!(:article) { create(:ticket_article, sender_name: 'Agent', type_name: 'note', updated_by_id: agent_user.id, created_by_id: agent_user.id  ) }
+
+    context 'by Admin user' do
+      before do
+        authenticated_as(admin_user)
+      end
+
+      it 'always succeeds' do
+        expect { delete "/api/v1/ticket_articles/#{article.id}", params: {}, as: :json }.to change { Ticket::Article.exists?(id: article.id) }
+      end
+    end
+
+    context 'by Agent user' do
+      before do
+        # this is needed, role needs full rights for the new group
+        # so that agent can delete the article
+        group_ids_access_map = Group.all.pluck(:id).each_with_object({}) { |group_id, result| result[group_id] = 'full'.freeze }
+        role = Role.find_by(name: 'Agent')
+        role.group_ids_access_map = group_ids_access_map
+        role.save!
+      end
+
+      context 'within 10 minutes of creation' do
+        before do
+
+          authenticated_as(agent_user)
+          travel 8.minutes
+        end
+
+        it 'succeeds' do
+          expect { delete "/api/v1/ticket_articles/#{article.id}", params: {}, as: :json }.to change { Ticket::Article.exists?(id: article.id) }
+        end
+      end
+
+      context '10+ minutes after creation' do
+        before do
+          authenticated_as(agent_user)
+          travel 11.minutes
+        end
+
+        it 'fails' do
+          expect { delete "/api/v1/ticket_articles/#{article.id}", params: {}, as: :json }.not_to change { Ticket::Article.exists?(id: article.id) }
+        end
+      end
     end
   end
 end

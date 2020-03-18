@@ -1,7 +1,14 @@
 # Default enabled cops
 # https://github.com/rubocop-hq/rubocop/blob/master/config/default.yml
 
-inherit_from: .rubocop_todo.yml
+require:
+  - rubocop-performance
+  - rubocop-rails
+  - rubocop-rspec
+
+inherit_from:
+  - .rubocop_todo.yml
+  - .rubocop_todo.rspec.yml
 
 AllCops:
   DisplayCopNames: true
@@ -10,6 +17,12 @@ AllCops:
     - 'bin/rake'
     - 'bin/spring'
     - 'db/schema.rb'
+    - 'vendor/**/*'
+    - 'public/assets/**/*'
+  RSpec:
+    Patterns:
+      - '_spec.rb$'
+      - '_examples.rb$'
 
 Rails:
   Enabled: true
@@ -19,7 +32,7 @@ Rails:
 Style/FrozenStringLiteralComment:
   Enabled: false
 
-Metrics/LineLength:
+Layout/LineLength:
   Description: 'Limit lines to 80 characters.'
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#80-character-limits'
   Enabled: false
@@ -93,6 +106,15 @@ Style/MethodDefParentheses:
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#method-parens'
   Enabled: false
 
+Layout/HashAlignment:
+  Description: >-
+                 Align the elements of a hash literal if they span more than
+                 one line.
+  Enabled: true
+  EnforcedHashRocketStyle: table
+  EnforcedColonStyle: table
+  EnforcedLastArgumentHashStyle: always_inspect
+
 Layout/EmptyLinesAroundClassBody:
   Description: "Keeps track of empty lines around class bodies."
   Enabled: false
@@ -133,6 +155,15 @@ Style/PerlBackrefs:
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#no-perl-regexp-last-matchers'
   Enabled: false
 
+Style/HashEachMethods:
+  Enabled: true
+
+Style/HashTransformKeys:
+  Enabled: true
+
+Style/HashTransformValues:
+  Enabled: true
+
 Style/SelfAssignment:
   Description: >-
                  Checks for places where self-assignment shorthand should have
@@ -140,9 +171,10 @@ Style/SelfAssignment:
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#self-assignment'
   Enabled: false
 
-Style/BracesAroundHashParameters:
-  Description: 'Enforce braces style around hash parameters.'
-  Enabled: false
+Rails/ApplicationRecord:
+  Exclude:
+    - 'app/models/application_model.rb'
+    - 'app/models/active_job_lock.rb'
 
 Rails/BulkChangeTable:
   Description: 'Check whether alter queries are combinable.'
@@ -165,6 +197,8 @@ Rails/SkipsModelValidations:
   Enabled: true
   Exclude:
     - test/**/*
+    - "**/*_spec.rb"
+    - "**/*_examples.rb"
 
 Style/ClassAndModuleChildren:
   Description: 'Checks style of children classes and modules.'
@@ -181,7 +215,7 @@ Naming/VariableNumber:
   Description: 'Use the configured style when numbering variables.'
   Enabled: false
 
-Naming/UncommunicativeMethodParamName:
+Naming/MethodParameterName:
   Description: >-
                 Checks for method parameter names that contain capital letters,
                 end in numbers, or do not meet a minimal length.
@@ -224,8 +258,8 @@ Style/NumericPredicate:
 
 Lint/AmbiguousBlockAssociation:
   Description: >-
-                 Checks for ambiguous block association with method when param passed without
-                 parentheses.
+                 Checks for ambiguous block association with method when param
+                 passed without parentheses.
   StyleGuide: '#syntax'
   Enabled: true
   Exclude:
@@ -233,8 +267,10 @@ Lint/AmbiguousBlockAssociation:
     - "**/*_spec.rb"
     - "**/*_examples.rb"
 
-# Special exceptions
-
-Style/HashSyntax:
-  Exclude:
-    - "**/*.rake"
+Layout/MultilineMethodCallIndentation:
+  Description: >-
+                 Checks the indentation of the method name part in method calls
+                 that span more than one line.
+  EnforcedStyle: indented
+  Include:
+    - "**/*_spec.rb"

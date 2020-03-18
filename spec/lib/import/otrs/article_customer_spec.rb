@@ -32,30 +32,30 @@ RSpec.describe Import::OTRS::ArticleCustomer do
   end
 
   it 'creates customers with special encoding in name' do
-    expect { described_class.new(load_article_json('customer_special_chars')) }.to change { User.count }.by(1)
+    expect { described_class.new(load_article_json('customer_special_chars')) }.to change(User, :count).by(1)
     expect(User.last.login).to eq('user.hernandez@example.com')
   end
 
   it 'creates customers with special from email syntax' do
-    expect { described_class.new(load_article_json('from_bracket_email_syntax')) }.to change { User.count }.by(1)
+    expect { described_class.new(load_article_json('from_bracket_email_syntax')) }.to change(User, :count).by(1)
     expect(User.last.login).to eq('user@example.com')
   end
 
   it 'converts emails to downcase' do
     Setting.set('import_mode', true)
-    expect { described_class.new(load_article_json('from_capital_case')) }.to change { User.count }.by(1)
+    expect { described_class.new(load_article_json('from_capital_case')) }.to change(User, :count).by(1)
     expect(User.last.email).to eq('user@example.com')
     expect(User.last.login).to eq('user@example.com')
   end
 
-  context '.find' do
+  describe '.find' do
 
     it 'returns nil if no email could be found' do
       expect(described_class.find({})).to be nil
     end
   end
 
-  context '.local_email' do
+  describe '.local_email' do
 
     it 'returns nil if no email could be found' do
       expect(described_class.local_email(nil)).to be nil

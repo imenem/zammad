@@ -57,7 +57,7 @@ License: MIT license
 highlight.pack.js
 Source: https://highlightjs.org
 Copyright: 2006 Ivan Sagalaev (https://github.com/isagalaev)
-License: BSD License
+License: BSD License (BSD-3-Clause)
 -----------------------------------------------------------------------------
 jquery.flot.js
 Source: https://github.com/dnschnur/flot
@@ -74,7 +74,7 @@ jquery.fineuploader-3.0.js
 Source: http://github.com/Valums-File-Uploader/file-uploader
 Copyright: 2010 Andrew Valums <andrew(at)valums.com>
            2012 Ray Nicholus <fineuploader(at)garstasio.com>
-License: MIT license, GNU GPL 2 or later, GNU LGPL 2 or later
+License: GNU GPL 2 or later, GNU LGPL 2 or later
 -----------------------------------------------------------------------------
 jquery.noty.js
 Source: https://github.com/needim/noty/
@@ -162,4 +162,29 @@ word_filter.js
 Source: https://gist.github.com/sbrin/6801034
 Copyright: 2015, sbrin - https://github.com/sbrin
 License: MIT license
+-----------------------------------------------------------------------------
+ant-design icon font
+Source: https://github.com/ant-design/ant-design
+Copyright: 2015-present Alipay.com, https://www.alipay.com/
+License: MIT license
+-----------------------------------------------------------------------------
+Font Awesome icon font
+Source: http://fontawesome.io/
+Copyright: Font Awesome by Dave Gandy - http://fontawesome.io
+License: MIT License
+-----------------------------------------------------------------------------
+Simple line icons font
+Source: https://github.com/thesabbir/simple-line-icons
+Copyright: 2016 Sabbir Ahmed & All Contributors
+License: MIT license
+-----------------------------------------------------------------------------
+Ionicons icon font
+Source: https://github.com/ionic-team/ionicons
+Copyright: 2016 Drifty (http://drifty.com/)
+License: MIT license
+-----------------------------------------------------------------------------
+Material icon font
+Source: https://github.com/google/material-design-icons
+Copyright: Google
+License: Apache License, Version 2.0
 -----------------------------------------------------------------------------

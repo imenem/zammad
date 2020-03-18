@@ -128,7 +128,7 @@ class App.User extends App.Model
 
   @_fillUp: (data) ->
 
-    # set socal media links
+    # set social media links
     if data['accounts']
       for account of data['accounts']
         if account == 'twitter'
@@ -238,7 +238,7 @@ class App.User extends App.Model
               if permission_key.substr(0, length) is requiredPermission.substr(0, length)
                 localAccess = true
 
-        # verify name.explicite permissions
+        # verify name.explicit permissions
         if !localAccess
           for part in parts
             if partString isnt ''
@@ -279,7 +279,7 @@ class App.User extends App.Model
     if user_role_ids
       for role_id in user_role_ids
         if App.Role.exists(role_id)
-          role = App.Role.find(role_id)
+          role = App.Role.findNative(role_id)
           if role.group_ids
             for local_group_id, local_permission of role.group_ids
               if _.include(local_permission, permission) || _.include(local_permission, 'full')
@@ -288,11 +288,11 @@ class App.User extends App.Model
 
   @outOfOfficeTextPlaceholder: ->
     today = new Date()
-    outOfOfficeText = 'Christmas holiday'
+    outOfOfficeText = App.i18n.translateContent('Christmas holiday')
     if today.getMonth() < 3
-      outOfOfficeText = 'Easter holiday'
+      outOfOfficeText = App.i18n.translateContent('Easter holiday')
     else if today.getMonth() < 9
-      outOfOfficeText = 'Summer holiday'
+      outOfOfficeText = App.i18n.translateContent('Summer holiday')
     outOfOfficeText
 
   outOfOfficeText: ->
@@ -346,3 +346,7 @@ class App.User extends App.Model
     return false if @organization_id is null
     return false if requester.organization_id is null
     @organization_id == requester.organization_id
+
+  # Do NOT modify the return value of this method!
+  # It is a direct reference to a value in the App.User.irecords object.
+  @current: App.Session.get

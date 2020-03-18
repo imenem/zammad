@@ -1107,6 +1107,7 @@ test("object manager form 1", function() {
   var test_params = {
     data_option: {
       default: "",
+      linktemplate: "",
       maxlength: 120,
       type: "text"
     },
@@ -1218,6 +1219,7 @@ test("object manager form 2", function() {
   var test_params = {
     data_option: {
       default: "",
+      linktemplate: "",
       maxlength: 120,
       type: "text"
     },
@@ -1271,6 +1273,7 @@ test("object manager form 3", function() {
   var test_params = {
     data_option: {
       default: "",
+      linktemplate: "",
       maxlength: 120,
       type: "text"
     },
@@ -1308,6 +1311,7 @@ test("object manager form 3", function() {
   test_params = {
     data_option: {
       default: "",
+      linktemplate: "",
       maxlength: 120,
       type: "text"
     },
@@ -1336,6 +1340,70 @@ test("object manager form 3", function() {
     }
   }
   deepEqual(params, test_params, 'form param check')
+
+});
+
+test("check if select value is not existing but is shown", function() {
+
+  $('#forms').append('<hr><h1>check if select value is not existing but is shown</h1><form id="form17"></form>')
+  var el = $('#form17')
+  var defaults = {
+    select1: 'NOT EXISTING',
+  }
+  new App.ControllerForm({
+    el:        el,
+    model:     {
+      configure_attributes: [
+        { name: 'select1', display: 'Select1', tag: 'select', null: true, default: 'XY', options: { 'XX': 'AA', 'A': 'XX', 'B': 'B', 'XY': 'b', '': 'äöü' } },
+      ],
+    },
+    params: defaults,
+  });
+
+  params = App.ControllerForm.params(el)
+  test_params = {
+    select1: 'NOT EXISTING',
+  }
+  deepEqual(params, test_params)
+
+  equal('AA', el.find('[name=select1] option')[0].text)
+  equal('äöü', el.find('[name=select1] option')[1].text)
+  equal('b', el.find('[name=select1] option')[2].text)
+  equal('B', el.find('[name=select1] option')[3].text)
+  equal('NOT EXISTING', el.find('[name=select1] option')[4].text)
+  equal('XX', el.find('[name=select1] option')[5].text)
+
+});
+
+test("check if select value is not existing and is not shown", function() {
+
+  $('#forms').append('<hr><h1>check if select value is not existing and is not shown</h1><form id="form18"></form>')
+  var el = $('#form18')
+  var defaults = {
+    select1: 'NOT EXISTING',
+  }
+  new App.ControllerForm({
+    el:        el,
+    model:     {
+      configure_attributes: [
+        { name: 'select1', display: 'Select1', tag: 'select', null: true, default: 'XY', options: { 'XX': 'AA', 'A': 'XX', 'B': 'B', 'XY': 'b', '': 'äöü' } },
+      ],
+    },
+    params: defaults,
+    rejectNonExistentValues: true,
+  });
+
+  params = App.ControllerForm.params(el)
+  test_params = {
+    select1: 'XY',
+  }
+  deepEqual(params, test_params)
+
+  equal('AA', el.find('[name=select1] option')[0].text)
+  equal('äöü', el.find('[name=select1] option')[1].text)
+  equal('b', el.find('[name=select1] option')[2].text)
+  equal('B', el.find('[name=select1] option')[3].text)
+  equal('XX', el.find('[name=select1] option')[4].text)
 
 });
 
@@ -1503,4 +1571,57 @@ test("form elements with sort check", function() {
   equal('B', el.find('[name=radio1]')[3].value)
   equal('A', el.find('[name=radio1]')[4].value)
 
+});
+
+test("form deep nesting", function() {
+  $('#forms').append('<hr><h1>form selector</h1><div><form id="form19"></form></div>')
+  var el = $('#form19')
+  var defaults = {
+    a: {
+      input1: 'a'
+    },
+    b: {
+      c: {
+        input2: 'b'
+      }
+    }
+  }
+  new App.ControllerForm({
+    el:        el,
+    model:     {
+      configure_attributes: [
+        { name: 'a::input1', display: 'Input1', tag: 'input', type: 'text', limit: 100, null: true, default: 'some not used default33' },
+        { name: 'b::c::input2', display: 'Input2', tag: 'input', type: 'text', limit: 100, null: true, default: 'some used default' },
+      ],
+    },
+    params: defaults,
+  });
+
+  params = App.ControllerForm.params(el)
+  deepEqual(params, defaults, 'nested params')
+});
+
+test("form with external links", function() {
+  $('#forms').append('<hr><h1>form with external links</h1><div><form id="form20"></form></div>')
+  var el = $('#form20')
+  var defaults = {
+    a: '133',
+    b: 'abc d',
+  }
+  new App.ControllerForm({
+    el:        el,
+    model:     {
+      configure_attributes: [
+        { name: 'a', display: 'Input1', tag: 'input', type: 'text', limit: 100, null: true, linktemplate:  "https://example.com/?q=#{ticket.a}" },
+        { name: 'b', display: 'Select1', tag: 'select', type: 'text', options: { a: 1, b: 2 }, limit: 100, null: true, linktemplate:  "https://example.com/?q=#{ticket.b}" },
+      ],
+      className: 'Ticket',
+    },
+    params: defaults,
+  });
+
+  params = App.ControllerForm.params(el)
+  deepEqual(params, defaults)
+  equal('https://example.com/?q=133', el.find('input[name="a"]').parents('.controls').find('a[href]').attr('href'))
+  equal('https://example.com/?q=abc%20d', el.find('select[name="b"]').parents('.controls').find('a[href]').attr('href'))
 });

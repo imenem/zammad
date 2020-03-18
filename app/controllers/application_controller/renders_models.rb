@@ -101,22 +101,11 @@ module ApplicationController::RendersModels
   end
 
   def model_index_render(object, params)
-    offset = 0
-    per_page = 500
-    if params[:page] && params[:per_page]
-      offset = (params[:page].to_i - 1) * params[:per_page].to_i
-      limit = params[:per_page].to_i
-    end
+    page = (params[:page] || 1).to_i
+    per_page = (params[:per_page] || 500).to_i
+    offset = (page - 1) * per_page
 
-    if per_page > 500
-      per_page = 500
-    end
-
-    generic_objects = if offset.positive?
-                        object.limit(params[:per_page]).order(id: 'ASC').offset(offset).limit(limit)
-                      else
-                        object.all.order(id: 'ASC').offset(offset).limit(limit)
-                      end
+    generic_objects = object.order(id: :asc).offset(offset).limit(per_page)
 
     if response_expand?
       list = []
@@ -136,7 +125,7 @@ module ApplicationController::RendersModels
       end
       render json: {
         record_ids: item_ids,
-        assets: assets,
+        assets:     assets,
       }, status: :ok
       return
     end

@@ -36,8 +36,8 @@ class Scheduler < ApplicationModel
         logger.error "Can't reconnect to database #{e.inspect}"
       end
 
-      # read/load jobs and check if it is alredy started
-      jobs = Scheduler.where('active = ?', true).order('prio ASC')
+      # read/load jobs and check if each has already been started
+      jobs = Scheduler.where('active = ?', true).order(prio: :asc)
       jobs.each do |job|
 
         # ignore job is still running
@@ -56,7 +56,7 @@ class Scheduler < ApplicationModel
 
   # Checks if a Scheduler Job should get started or not.
   # The decision is based on if there is a running thread or not.
-  # Invalid threads get canceled and new threads can get started.
+  # Invalid threads get cancelled and new threads can get started.
   #
   # @param [Scheduler] job The job that should get checked for running threads.
   #
@@ -229,7 +229,7 @@ class Scheduler < ApplicationModel
     Thread.new do
       ApplicationHandleInfo.current = 'scheduler'
 
-      logger.info "Started job thread for '#{job.name}' (#{job.method})..."
+      logger.debug { "Started job thread for '#{job.name}' (#{job.method})..." }
 
       # start loop for periods equal or under 5 minutes
       if job.period && job.period <= 5.minutes
@@ -257,19 +257,27 @@ class Scheduler < ApplicationModel
       else
         _start_job(job)
       end
-      job.pid = ''
-      job.save
-      logger.info " ...stopped thread for '#{job.method}'"
-      ActiveRecord::Base.connection.close
 
-      # release thread lock and remove thread handle
-      @@jobs_started.delete(job.id)
+      if job.present?
+        job.pid = ''
+        job.save
+
+        logger.debug { " ...stopped thread for '#{job.method}'" }
+
+        # release thread lock and remove thread handle
+        @@jobs_started.delete(job.id)
+      else
+        logger.warn ' ...Job got deleted while running'
+      end
+
+      ActiveRecord::Base.connection.close
     end
   end
 
   def self._start_job(job, try_count = 0, try_run_time = Time.zone.now)
+    started_at = Time.zone.now
     job.update!(
-      last_run:      Time.zone.now,
+      last_run:      started_at,
       pid:           Thread.current.object_id,
       status:        'ok',
       error_message: '',
@@ -277,8 +285,11 @@ class Scheduler < ApplicationModel
 
     logger.info "execute #{job.method} (try_count #{try_count})..."
     eval job.method() # rubocop:disable Security/Eval
+    took = Time.zone.now - started_at
+    logger.info "ended #{job.method} took: #{took} seconds."
   rescue => e
-    logger.error "execute #{job.method} (try_count #{try_count}) exited with error #{e.inspect}"
+    took = Time.zone.now - started_at
+    logger.error "execute #{job.method} (try_count #{try_count}) exited with error #{e.inspect} in: #{took} seconds."
 
     # reconnect in case db connection is lost
     begin
@@ -309,8 +320,8 @@ class Scheduler < ApplicationModel
 
       job.update!(
         error_message: error,
-        status: 'error',
-        active: false,
+        status:        'error',
+        active:        false,
       )
     end
 
@@ -318,7 +329,8 @@ class Scheduler < ApplicationModel
   # https://stackoverflow.com/questions/10048173/why-is-it-bad-style-to-rescue-exception-e-in-ruby
   # http://rubylearning.com/satishtalim/ruby_exceptions.html
   rescue Exception => e # rubocop:disable Lint/RescueException
-    logger.error "execute #{job.method} (try_count #{try_count}) exited with a non standard-error #{e.inspect}"
+    took = Time.zone.now - started_at
+    logger.error "execute #{job.method} (try_count #{try_count}) exited with a non standard-error #{e.inspect} in: #{took} seconds."
     raise
   end
 

@@ -6,11 +6,8 @@ module Cti
 
     # adopt/orphan matching Cti::Log records
     # (see https://github.com/zammad/zammad/issues/2057)
-    after_commit :update_cti_logs, on: :destroy
-    after_commit :update_cti_logs_with_fg_optimization, on: :create
-
-    skip_callback :commit, :after, :update_cti_logs, if: -> { BulkImportInfo.enabled? }
-    skip_callback :commit, :after, :update_cti_logs_with_fg_optimization, if: -> { BulkImportInfo.enabled? }
+    after_commit :update_cti_logs, on: :destroy, unless: -> { BulkImportInfo.enabled? }
+    after_commit :update_cti_logs_with_fg_optimization, on: :create, unless: -> { BulkImportInfo.enabled? }
 
 =begin
 
@@ -42,6 +39,8 @@ module Cti
 
 =begin
 
+get items (users) for a certain caller id
+
   caller_id_records = Cti::CallerId.lookup('49123456789')
 
 returns
@@ -56,7 +55,7 @@ returns
           Cti::CallerId.select('MAX(id) as caller_id')
                        .where({ caller_id: caller_id, level: level }.compact)
                        .group(:user_id)
-                       .order('caller_id DESC')
+                       .order(Arel.sql('caller_id DESC')) # not used as `caller_id: :desc` because is needed for `as caller_id`
                        .limit(20)
                        .map(&:caller_id)
         end.find(&:present?)
@@ -131,11 +130,11 @@ returns
       existing_record_ids = Cti::CallerId.where(object: model.to_s, o_id: record.id).pluck(:id)
       caller_ids.uniq.each do |caller_id|
         existing_record_id = Cti::CallerId.where(
-          object: model.to_s,
-          o_id: record.id,
+          object:    model.to_s,
+          o_id:      record.id,
           caller_id: caller_id,
-          level: level,
-          user_id: user_id,
+          level:     level,
+          user_id:   user_id,
         ).pluck(:id)
         if existing_record_id[0]
           existing_record_ids.delete(existing_record_id[0])
@@ -153,10 +152,10 @@ returns
       caller_ids_to_add.each do |caller_id|
         Cti::CallerId.maybe_add(
           caller_id: caller_id,
-          level: level,
-          object: model.to_s,
-          o_id: record.id,
-          user_id: user_id,
+          level:     level,
+          object:    model.to_s,
+          o_id:      record.id,
+          user_id:   user_id,
         )
       end
       true
@@ -313,6 +312,30 @@ returns
       return ["maybe #{from_comment_maybe}", preferences_maybe] if from_comment_maybe.present?
 
       nil
+    end
+
+=begin
+
+return users by caller_id
+
+  [user1, user2] = Cti::CallerId.known_agents_by_number('491234567')
+
+=end
+
+    def self.known_agents_by_number(number)
+      users = []
+      caller_ids = Cti::CallerId.extract_numbers(number)
+      caller_id_records = Cti::CallerId.lookup(caller_ids)
+      caller_id_records.each do |caller_id_record|
+        next if caller_id_record.level != 'known'
+
+        user = User.find_by(id: caller_id_record.user_id)
+        next if !user
+        next if !user.permissions?('cti.agent')
+
+        users.push user
+      end
+      users
     end
 
     def update_cti_logs

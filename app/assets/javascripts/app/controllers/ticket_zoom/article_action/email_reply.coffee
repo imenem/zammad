@@ -46,7 +46,7 @@ class EmailReply extends App.Controller
             if !localAddress
               foreignRecipients.push recipient
 
-      # check if reply all is neede
+      # check if reply all is needed
       if foreignRecipients.length > 1
         actions.push {
           name: 'reply all'
@@ -132,7 +132,6 @@ class EmailReply extends App.Controller
     selected = App.ClipBoard.getSelected('html')
     if selected
       selected = App.Utils.htmlCleanup(selected).html()
-      selected = App.Utils.htmlImage2DataUrl(selected)
     if !selected
       selected = App.ClipBoard.getSelected('text')
       if selected
@@ -149,11 +148,14 @@ class EmailReply extends App.Controller
         selected = App.Utils.text2html(selected)
 
     if selected
-      date = @date_format(article.created_at)
-      name = article.updated_by.displayName()
-      email = article.updated_by.email
-      quote_header = App.i18n.translateInline('On %s, %s wrote:', date, name)
-      selected = "<div><br><br/></div><div><blockquote type=\'cite\'>#{quote_header}<br><br>#{selected}<br></blockquote></div><div><br></div>"
+      quote_header = ''
+      if App.Config.get('ui_ticket_zoom_article_email_full_quote_header')
+        date = @date_format(article.created_at)
+        name = article.updated_by.displayName()
+        email = article.updated_by.email
+        quote_header = App.i18n.translateInline('On %s, %s wrote:', date, name) + '<br><br>'
+
+      selected = "<div><br><br/></div><div><blockquote type=\'cite\'>#{quote_header}#{selected}<br></blockquote></div><div><br></div>"
 
       # add selected text to body
       body = selected + body
@@ -194,7 +196,6 @@ class EmailReply extends App.Controller
     body = ''
     if article.content_type.match('html')
       body = App.Utils.textCleanup(article.body)
-      body = App.Utils.htmlImage2DataUrl(article.body)
 
     if article.content_type.match('plain')
       body = App.Utils.textCleanup(article.body)
@@ -304,6 +305,9 @@ class EmailReply extends App.Controller
         else
           body.append(signature)
         ui.$('[data-name=body]').replaceWith(body)
+
+    # convert remote images into data urls
+    App.Utils.htmlImage2DataUrlAsyncInline(ui.$('[contenteditable=true]'))
 
   @validation: (type, params, ui) ->
     return true if type isnt 'email'

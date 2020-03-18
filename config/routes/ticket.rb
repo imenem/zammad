@@ -14,6 +14,7 @@ Zammad::Application.routes.draw do
   match api_path + '/ticket_history/:id',                            to: 'tickets#ticket_history',    via: :get
   match api_path + '/ticket_customer',                               to: 'tickets#ticket_customer',   via: :get
   match api_path + '/ticket_related/:ticket_id',                     to: 'tickets#ticket_related',    via: :get
+  match api_path + '/ticket_recent',                                 to: 'tickets#ticket_recent',     via: :get
   match api_path + '/ticket_merge/:slave_ticket_id/:master_ticket_number', to: 'tickets#ticket_merge', via: :get
   match api_path + '/ticket_stats',                                  to: 'tickets#stats',             via: :get
 
@@ -42,8 +43,6 @@ Zammad::Application.routes.draw do
   match api_path + '/ticket_articles/:id',                           to: 'ticket_articles#update',          via: :put
   match api_path + '/ticket_articles/:id',                           to: 'ticket_articles#destroy',     via: :delete
   match api_path + '/ticket_attachment/:ticket_id/:article_id/:id',  to: 'ticket_articles#attachment',      via: :get
-  match api_path + '/ticket_attachment_upload',                      to: 'ticket_articles#ticket_attachment_upload_add', via: :post
-  match api_path + '/ticket_attachment_upload',                      to: 'ticket_articles#ticket_attachment_upload_delete', via: :delete
   match api_path + '/ticket_attachment_upload_clone_by_article/:article_id', to: 'ticket_articles#ticket_attachment_upload_clone_by_article', via: :post
   match api_path + '/ticket_article_plain/:id',                      to: 'ticket_articles#article_plain',   via: :get
 

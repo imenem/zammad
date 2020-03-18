@@ -8,8 +8,8 @@ class Service::GeoLocation::Gmaps
       url,
       {},
       {
-        open_timeout: 2,
-        read_timeout: 4,
+        open_timeout:  2,
+        read_timeout:  4,
         total_timeout: 4,
       },
     )
@@ -23,7 +23,7 @@ class Service::GeoLocation::Gmaps
 
     lat = result['results'].first['geometry']['location']['lat']
     lng = result['results'].first['geometry']['location']['lng']
-    latlng = [lat, lng]
+    [lat, lng]
   end
 
   def self.reverse_geocode(lat, lng)
@@ -32,9 +32,9 @@ class Service::GeoLocation::Gmaps
       url,
       {},
       {
-        json: true,
-        open_timeout: 2,
-        read_timeout: 4,
+        json:          true,
+        open_timeout:  2,
+        read_timeout:  4,
         total_timeout: 4,
       },
     )

@@ -54,7 +54,7 @@ class Taskbar < ApplicationModel
   def attachments
     return [] if persisted_form_id.blank?
 
-    Store.list(object: 'UploadCache', o_id: persisted_form_id)
+    UploadCache.new(persisted_form_id).attachments
   end
 
   def add_attachments_to_attributes(attributes)
@@ -104,19 +104,19 @@ class Taskbar < ApplicationModel
         local_last_contact = taskbar.last_contact
       end
       task = {
-        id: taskbar.id,
-        user_id: taskbar.user_id,
+        id:           taskbar.id,
+        user_id:      taskbar.user_id,
         last_contact: local_last_contact,
-        changed: local_changed,
+        changed:      local_changed,
       }
       preferences[:tasks].push task
     end
     if !id
       changed = state_changed?
       task = {
-        user_id: user_id,
+        user_id:      user_id,
         last_contact: last_contact,
-        changed: changed,
+        changed:      changed,
       }
       preferences[:tasks].push task
     end
@@ -145,9 +145,9 @@ class Taskbar < ApplicationModel
 
     data = {
       event: 'taskbar:preferences',
-      data: {
-        id: id,
-        key: key,
+      data:  {
+        id:          id,
+        key:         key,
         preferences: preferences,
       },
     }

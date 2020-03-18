@@ -25,7 +25,6 @@ if [ "$LEVEL" == '1' ]; then
   # test/browser/agent_navigation_and_title_test.rb
   # test/browser/agent_organization_profile_test.rb
   rm test/browser/agent_ticket_attachment_test.rb
-  rm test/browser/agent_ticket_auto_assignment_test.rb
   rm test/browser/agent_ticket_create_available_types_test.rb
   rm test/browser/agent_ticket_create_attachment_missing_after_reload_test.rb
   rm test/browser/agent_ticket_create_cc_tokenizer_test.rb
@@ -41,6 +40,7 @@ if [ "$LEVEL" == '1' ]; then
   rm test/browser/agent_ticket_overview_group_by_organization_test.rb
   rm test/browser/agent_ticket_overview_level0_test.rb
   rm test/browser/agent_ticket_overview_level1_test.rb
+  rm test/browser/agent_ticket_overview_pending_til_test.rb
   rm test/browser/agent_ticket_overview_tab_test.rb
   rm test/browser/agent_ticket_tag_test.rb
   rm test/browser/agent_ticket_task_changed_test.rb
@@ -58,6 +58,7 @@ if [ "$LEVEL" == '1' ]; then
   rm test/browser/agent_user_profile_test.rb
   # test/browser/auth_test.rb
   rm test/browser/chat_test.rb
+  rm test/browser/chat_no_jquery_test.rb
   rm test/browser/customer_ticket_create_fields_test.rb
   rm test/browser/customer_ticket_create_test.rb
   rm test/browser/first_steps_test.rb
@@ -65,7 +66,6 @@ if [ "$LEVEL" == '1' ]; then
   rm test/browser/integration_test.rb
   rm test/browser/keyboard_shortcuts_test.rb
   # test/browser/maintenance_app_version_test.rb
-  # test/browser/maintenance_login_message_test.rb
   # test/browser/maintenance_mode_test.rb
   # test/browser/maintenance_session_message_test.rb
   # test/browser/manage_test.rb
@@ -105,7 +105,6 @@ elif [ "$LEVEL" == '2' ]; then
   rm test/browser/agent_navigation_and_title_test.rb
   rm test/browser/agent_organization_profile_test.rb
   rm test/browser/agent_ticket_attachment_test.rb
-  rm test/browser/agent_ticket_auto_assignment_test.rb
   rm test/browser/agent_ticket_create_available_types_test.rb
   rm test/browser/agent_ticket_create_attachment_missing_after_reload_test.rb
   rm test/browser/agent_ticket_create_cc_tokenizer_test.rb
@@ -121,6 +120,7 @@ elif [ "$LEVEL" == '2' ]; then
   rm test/browser/agent_ticket_overview_group_by_organization_test.rb
   rm test/browser/agent_ticket_overview_level0_test.rb
   rm test/browser/agent_ticket_overview_level1_test.rb
+  rm test/browser/agent_ticket_overview_pending_til_test.rb
   rm test/browser/agent_ticket_overview_tab_test.rb
   rm test/browser/agent_ticket_tag_test.rb
   rm test/browser/agent_ticket_task_changed_test.rb
@@ -138,6 +138,7 @@ elif [ "$LEVEL" == '2' ]; then
   rm test/browser/agent_user_profile_test.rb
   rm test/browser/auth_test.rb
   rm test/browser/chat_test.rb
+  rm test/browser/chat_no_jquery_test.rb
   rm test/browser/customer_ticket_create_fields_test.rb
   rm test/browser/customer_ticket_create_test.rb
   rm test/browser/first_steps_test.rb
@@ -145,7 +146,6 @@ elif [ "$LEVEL" == '2' ]; then
   rm test/browser/integration_test.rb
   rm test/browser/keyboard_shortcuts_test.rb
   rm test/browser/maintenance_app_version_test.rb
-  rm test/browser/maintenance_login_message_test.rb
   rm test/browser/maintenance_mode_test.rb
   rm test/browser/maintenance_session_message_test.rb
   rm test/browser/manage_test.rb
@@ -185,7 +185,6 @@ elif [ "$LEVEL" == '3' ]; then
   rm test/browser/agent_navigation_and_title_test.rb
   rm test/browser/agent_organization_profile_test.rb
   # test/browser/agent_ticket_attachment_test.rb
-  # test/browser/agent_ticket_auto_assignment_test.rb
   # rm test/browser/agent_ticket_create_available_types_test.rb
   # rm test/browser/agent_ticket_create_attachment_missing_after_reload_test.rb
   #rm test/browser/agent_ticket_create_cc_tokenizer_test.rb
@@ -201,6 +200,7 @@ elif [ "$LEVEL" == '3' ]; then
   rm test/browser/agent_ticket_overview_group_by_organization_test.rb
   rm test/browser/agent_ticket_overview_level0_test.rb
   rm test/browser/agent_ticket_overview_level1_test.rb
+  rm test/browser/agent_ticket_overview_pending_til_test.rb
   rm test/browser/agent_ticket_overview_tab_test.rb
   # test/browser/agent_ticket_tag_test.rb
   # test/browser/agent_ticket_task_changed_test.rb
@@ -218,6 +218,7 @@ elif [ "$LEVEL" == '3' ]; then
   rm test/browser/agent_user_profile_test.rb
   rm test/browser/auth_test.rb
   rm test/browser/chat_test.rb
+  rm test/browser/chat_no_jquery_test.rb
   rm test/browser/customer_ticket_create_fields_test.rb
   rm test/browser/customer_ticket_create_test.rb
   rm test/browser/first_steps_test.rb
@@ -225,7 +226,6 @@ elif [ "$LEVEL" == '3' ]; then
   rm test/browser/integration_test.rb
   rm test/browser/keyboard_shortcuts_test.rb
   rm test/browser/maintenance_app_version_test.rb
-  rm test/browser/maintenance_login_message_test.rb
   rm test/browser/maintenance_mode_test.rb
   rm test/browser/maintenance_session_message_test.rb
   rm test/browser/manage_test.rb
@@ -265,7 +265,6 @@ elif [ "$LEVEL" == '4' ]; then
   rm test/browser/agent_navigation_and_title_test.rb
   rm test/browser/agent_organization_profile_test.rb
   rm test/browser/agent_ticket_attachment_test.rb
-  rm test/browser/agent_ticket_auto_assignment_test.rb
   rm test/browser/agent_ticket_create_available_types_test.rb
   rm test/browser/agent_ticket_create_attachment_missing_after_reload_test.rb
   rm test/browser/agent_ticket_create_cc_tokenizer_test.rb
@@ -281,6 +280,7 @@ elif [ "$LEVEL" == '4' ]; then
   # test/browser/agent_ticket_overview_group_by_organization_test.rb
   # test/browser/agent_ticket_overview_level0_test.rb
   # test/browser/agent_ticket_overview_level1_test.rb
+  # test/browser/agent_ticket_overview_pending_til_test.rb
   # test/browser/agent_ticket_overview_tab_test.rb
   rm test/browser/agent_ticket_tag_test.rb
   rm test/browser/agent_ticket_task_changed_test.rb
@@ -298,6 +298,7 @@ elif [ "$LEVEL" == '4' ]; then
   rm test/browser/agent_user_profile_test.rb
   rm test/browser/auth_test.rb
   rm test/browser/chat_test.rb
+  rm test/browser/chat_no_jquery_test.rb
   # test/browser/customer_ticket_create_fields_test.rb
   # test/browser/customer_ticket_create_test.rb
   rm test/browser/first_steps_test.rb
@@ -305,7 +306,6 @@ elif [ "$LEVEL" == '4' ]; then
   rm test/browser/integration_test.rb
   rm test/browser/keyboard_shortcuts_test.rb
   rm test/browser/maintenance_app_version_test.rb
-  rm test/browser/maintenance_login_message_test.rb
   rm test/browser/maintenance_mode_test.rb
   rm test/browser/maintenance_session_message_test.rb
   rm test/browser/manage_test.rb
@@ -344,7 +344,6 @@ elif [ "$LEVEL" == '5' ]; then
   rm test/browser/agent_navigation_and_title_test.rb
   rm test/browser/agent_organization_profile_test.rb
   rm test/browser/agent_ticket_attachment_test.rb
-  rm test/browser/agent_ticket_auto_assignment_test.rb
   rm test/browser/agent_ticket_create_available_types_test.rb
   rm test/browser/agent_ticket_create_attachment_missing_after_reload_test.rb
   rm test/browser/agent_ticket_create_cc_tokenizer_test.rb
@@ -360,6 +359,7 @@ elif [ "$LEVEL" == '5' ]; then
   rm test/browser/agent_ticket_overview_group_by_organization_test.rb
   rm test/browser/agent_ticket_overview_level0_test.rb
   rm test/browser/agent_ticket_overview_level1_test.rb
+  rm test/browser/agent_ticket_overview_pending_til_test.rb
   rm test/browser/agent_ticket_overview_tab_test.rb
   rm test/browser/agent_ticket_tag_test.rb
   rm test/browser/agent_ticket_task_changed_test.rb
@@ -377,6 +377,7 @@ elif [ "$LEVEL" == '5' ]; then
   # test/browser/agent_user_profile_test.rb
   rm test/browser/auth_test.rb
   rm test/browser/chat_test.rb
+  rm test/browser/chat_no_jquery_test.rb
   rm test/browser/customer_ticket_create_fields_test.rb
   rm test/browser/customer_ticket_create_test.rb
   rm test/browser/first_steps_test.rb
@@ -384,7 +385,6 @@ elif [ "$LEVEL" == '5' ]; then
   rm test/browser/integration_test.rb
   rm test/browser/keyboard_shortcuts_test.rb
   rm test/browser/maintenance_app_version_test.rb
-  rm test/browser/maintenance_login_message_test.rb
   rm test/browser/maintenance_mode_test.rb
   rm test/browser/maintenance_session_message_test.rb
   rm test/browser/manage_test.rb
@@ -426,7 +426,6 @@ elif [ "$LEVEL" == '6' ]; then
   rm test/browser/agent_navigation_and_title_test.rb
   rm test/browser/agent_organization_profile_test.rb
   rm test/browser/agent_ticket_attachment_test.rb
-  rm test/browser/agent_ticket_auto_assignment_test.rb
   rm test/browser/agent_ticket_create_available_types_test.rb
   rm test/browser/agent_ticket_create_attachment_missing_after_reload_test.rb
   rm test/browser/agent_ticket_create_cc_tokenizer_test.rb
@@ -442,6 +441,7 @@ elif [ "$LEVEL" == '6' ]; then
   rm test/browser/agent_ticket_overview_group_by_organization_test.rb
   rm test/browser/agent_ticket_overview_level0_test.rb
   rm test/browser/agent_ticket_overview_level1_test.rb
+  rm test/browser/agent_ticket_overview_pending_til_test.rb
   rm test/browser/agent_ticket_overview_tab_test.rb
   rm test/browser/agent_ticket_tag_test.rb
   rm test/browser/agent_ticket_task_changed_test.rb
@@ -459,6 +459,7 @@ elif [ "$LEVEL" == '6' ]; then
   rm test/browser/agent_user_profile_test.rb
   rm test/browser/auth_test.rb
   # test/browser/chat_test.rb
+  # test/browser/chat_no_jquery_test.rb
   rm test/browser/customer_ticket_create_fields_test.rb
   rm test/browser/customer_ticket_create_test.rb
   # test/browser/first_steps_test.rb
@@ -466,7 +467,6 @@ elif [ "$LEVEL" == '6' ]; then
   # test/browser/integration_test.rb
   # test/browser/keyboard_shortcuts_test.rb
   rm test/browser/maintenance_app_version_test.rb
-  rm test/browser/maintenance_login_message_test.rb
   rm test/browser/maintenance_mode_test.rb
   rm test/browser/maintenance_session_message_test.rb
   rm test/browser/manage_test.rb

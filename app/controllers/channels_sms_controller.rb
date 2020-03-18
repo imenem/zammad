@@ -8,10 +8,10 @@ class ChannelsSmsController < ApplicationChannelController
   def index
     assets = {}
     render json: {
-      account_channel_ids: channels_data('Sms::Account', assets),
+      account_channel_ids:      channels_data('Sms::Account', assets),
       notification_channel_ids: channels_data('Sms::Notification', assets),
-      config: channels_config,
-      assets: assets
+      config:                   channels_config,
+      assets:                   assets
     }
   end
 
@@ -37,7 +37,7 @@ class ChannelsSmsController < ApplicationChannelController
     end
     if !channel
       render(
-        json: { message: 'channel not found' },
+        json:   { message: 'channel not found' },
         status: :not_found
       )
       return
@@ -66,7 +66,7 @@ class ChannelsSmsController < ApplicationChannelController
 
   def channels_config
     list = []
-    Dir.glob(Rails.root.join('app', 'models', 'channel', 'driver', 'sms', '*.rb')).each do |path|
+    Dir.glob(Rails.root.join('app/models/channel/driver/sms/*.rb')).each do |path|
       filename = File.basename(path)
       require_dependency "channel/driver/sms/#{filename.sub('.rb', '')}"
       list.push Channel.driver_class("sms/#{filename}").definition

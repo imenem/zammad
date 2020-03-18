@@ -2,6 +2,7 @@ require 'test_helper'
 
 class EmailDeliverTest < ActiveSupport::TestCase
   test 'basic check' do
+    travel_to DateTime.current
 
     if ENV['MAIL_SERVER'].blank?
       raise "Need MAIL_SERVER as ENV variable like export MAIL_SERVER='mx.example.com'"
@@ -10,41 +11,45 @@ class EmailDeliverTest < ActiveSupport::TestCase
       raise "Need MAIL_SERVER_ACCOUNT as ENV variable like export MAIL_SERVER_ACCOUNT='user:somepass'"
     end
 
+    if ENV['MAIL_SERVER_EMAIL'].blank?
+      raise "Need MAIL_SERVER_EMAIL as ENV variable like export MAIL_SERVER_EMAIL='someunitest@example.com'"
+    end
+
     server_login = ENV['MAIL_SERVER_ACCOUNT'].split(':')[0]
     server_password = ENV['MAIL_SERVER_ACCOUNT'].split(':')[1]
 
     email_address = EmailAddress.create!(
-      realname: 'me Helpdesk',
-      email: "me#{rand(999_999_999)}@example.com",
+      realname:      'me Helpdesk',
+      email:         "some-zammad-#{ENV['MAIL_SERVER_EMAIL']}",
       updated_by_id: 1,
       created_by_id: 1,
     )
 
     group = Group.create_or_update(
-      name: 'DeliverTest',
+      name:             'DeliverTest',
       email_address_id: email_address.id,
-      updated_by_id: 1,
-      created_by_id: 1,
+      updated_by_id:    1,
+      created_by_id:    1,
     )
 
     channel = Channel.create!(
-      area: 'Email::Account',
-      group_id: group.id,
-      options: {
-        inbound: {
+      area:          'Email::Account',
+      group_id:      group.id,
+      options:       {
+        inbound:  {
           adapter: 'imap',
           options: {
-            host: 'mx1.example.com',
-            user: 'example',
+            host:     'mx1.example.com',
+            user:     'example',
             password: 'some_pw',
-            ssl: true,
+            ssl:      true,
           }
         },
         outbound: {
           adapter: 'sendmail'
         }
       },
-      active: true,
+      active:        true,
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -53,25 +58,25 @@ class EmailDeliverTest < ActiveSupport::TestCase
     email_address.save!
 
     ticket1 = Ticket.create!(
-      title: 'some delivery test',
-      group: group,
-      customer_id: 2,
-      state: Ticket::State.lookup(name: 'new'),
-      priority: Ticket::Priority.lookup(name: '2 normal'),
+      title:         'some delivery test',
+      group:         group,
+      customer_id:   2,
+      state:         Ticket::State.lookup(name: 'new'),
+      priority:      Ticket::Priority.lookup(name: '2 normal'),
       updated_by_id: 1,
       created_by_id: 1,
     )
     assert(ticket1, 'ticket created')
 
     article1 = Ticket::Article.create!(
-      ticket_id: ticket1.id,
-      to: 'some_recipient@example_not_existing_what_ever.com',
-      subject: 'some subject',
-      message_id: 'some@id',
-      body: 'some message delivery test',
-      internal: false,
-      sender: Ticket::Article::Sender.find_by(name: 'Agent'),
-      type: Ticket::Article::Type.find_by(name: 'email'),
+      ticket_id:     ticket1.id,
+      to:            'some_recipient@example_not_existing_what_ever.com',
+      subject:       'some subject',
+      message_id:    'some@id',
+      body:          'some message delivery test',
+      internal:      false,
+      sender:        Ticket::Article::Sender.find_by(name: 'Agent'),
+      type:          Ticket::Article::Type.find_by(name: 'email'),
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -81,8 +86,7 @@ class EmailDeliverTest < ActiveSupport::TestCase
     assert_nil(article1.preferences['delivery_status_date'])
     assert_nil(article1.preferences['delivery_status_message'])
 
-    result = Observer::Ticket::Article::CommunicateEmail::BackgroundJob.new(article1.id)
-    assert(result.perform)
+    TicketArticleCommunicateEmailJob.new.perform(article1.id)
 
     article1_lookup = Ticket::Article.find(article1.id)
     assert_equal(1, article1_lookup.preferences['delivery_retry'])
@@ -93,30 +97,29 @@ class EmailDeliverTest < ActiveSupport::TestCase
     # send with invalid smtp settings
     channel.update!(
       options: {
-        inbound: {
+        inbound:  {
           adapter: 'imap',
           options: {
-            host: 'mx1.example.com',
-            user: 'example',
+            host:     'mx1.example.com',
+            user:     'example',
             password: 'some_pw',
-            ssl: true,
+            ssl:      true,
           }
         },
         outbound: {
           adapter: 'smtp',
           options: {
-            host: 'mx1.example.com',
-            port: 25,
+            host:      'mx1.example.com',
+            port:      25,
             start_tls: true,
-            user: 'not_existing',
-            password: 'not_existing',
+            user:      'not_existing',
+            password:  'not_existing',
           },
         },
       },
     )
     assert_raises(RuntimeError) do
-      result = Observer::Ticket::Article::CommunicateEmail::BackgroundJob.new(article1.id)
-      assert_not(result.perform)
+      TicketArticleCommunicateEmailJob.new.perform(article1.id)
     end
     article1_lookup = Ticket::Article.find(article1.id)
     assert_equal(2, article1_lookup.preferences['delivery_retry'])
@@ -127,30 +130,29 @@ class EmailDeliverTest < ActiveSupport::TestCase
     # send with correct smtp settings
     channel.update!(
       options: {
-        inbound: {
+        inbound:  {
           adapter: 'imap',
           options: {
-            host: 'mx1.example.com',
-            user: 'example',
+            host:     'mx1.example.com',
+            user:     'example',
             password: 'some_pw',
-            ssl: true,
+            ssl:      true,
           }
         },
         outbound: {
           adapter: 'smtp',
           options: {
-            host: ENV['MAIL_SERVER'],
-            port: 25,
+            host:      ENV['MAIL_SERVER'],
+            port:      25,
             start_tls: true,
-            user: server_login,
-            password: server_password,
+            user:      server_login,
+            password:  server_password,
           },
         },
       },
     )
 
-    result = Observer::Ticket::Article::CommunicateEmail::BackgroundJob.new(article1.id)
-    assert(result.perform)
+    TicketArticleCommunicateEmailJob.new.perform(article1.id)
     article1_lookup = Ticket::Article.find(article1.id)
     assert_equal(3, article1_lookup.preferences['delivery_retry'])
     assert_equal('success', article1_lookup.preferences['delivery_status'])
@@ -164,23 +166,23 @@ class EmailDeliverTest < ActiveSupport::TestCase
     # send with invalid smtp settings
     channel.update!(
       options: {
-        inbound: {
+        inbound:  {
           adapter: 'imap',
           options: {
-            host: 'mx1.example.com',
-            user: 'example',
+            host:     'mx1.example.com',
+            user:     'example',
             password: 'some_pw',
-            ssl: true,
+            ssl:      true,
           }
         },
         outbound: {
           adapter: 'smtp',
           options: {
-            host: 'mx1.example.com',
-            port: 25,
+            host:      'mx1.example.com',
+            port:      25,
             start_tls: true,
-            user: 'not_existing',
-            password: 'not_existing',
+            user:      'not_existing',
+            password:  'not_existing',
           },
         },
       },
@@ -190,14 +192,14 @@ class EmailDeliverTest < ActiveSupport::TestCase
     Delayed::Job.destroy_all
 
     article2 = Ticket::Article.create!(
-      ticket_id: ticket1.id,
-      to: 'some_recipient@example_not_existing_what_ever.com',
-      subject: 'some subject2',
-      message_id: 'some@id',
-      body: 'some message delivery test2',
-      internal: false,
-      sender: Ticket::Article::Sender.find_by(name: 'Agent'),
-      type: Ticket::Article::Type.find_by(name: 'email'),
+      ticket_id:     ticket1.id,
+      to:            'some_recipient@example_not_existing_what_ever.com',
+      subject:       'some subject2',
+      message_id:    'some@id',
+      body:          'some message delivery test2',
+      internal:      false,
+      sender:        Ticket::Article::Sender.find_by(name: 'Agent'),
+      type:          Ticket::Article::Type.find_by(name: 'email'),
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -205,9 +207,9 @@ class EmailDeliverTest < ActiveSupport::TestCase
     ticket1.state = Ticket::State.find_by(name: 'closed')
     ticket1.save
 
-    assert_raises(RuntimeError) do
-      Scheduler.worker(true)
-    end
+    assert(Delayed::Job.where(attempts: 1).none?)
+    Scheduler.worker(true)
+    assert(Delayed::Job.where(attempts: 1).exists?)
     ticket1.reload
 
     article2_lookup = Ticket::Article.find(article2.id)
@@ -228,10 +230,10 @@ class EmailDeliverTest < ActiveSupport::TestCase
     assert(article2_lookup.preferences['delivery_status_message'])
     assert_equal('closed', ticket1.state.name)
 
-    sleep 6
-    assert_raises(RuntimeError) do
-      Scheduler.worker(true)
-    end
+    travel 26.seconds
+    assert(Delayed::Job.where(attempts: 2).none?)
+    Scheduler.worker(true)
+    assert(Delayed::Job.where(attempts: 2).exists?)
     ticket1.reload
 
     article2_lookup = Ticket::Article.find(article2.id)
@@ -253,10 +255,10 @@ class EmailDeliverTest < ActiveSupport::TestCase
     assert(article2_lookup.preferences['delivery_status_message'])
     assert_equal('closed', ticket1.state.name)
 
-    sleep 11
-    assert_raises(RuntimeError) do
-      Scheduler.worker(true)
-    end
+    travel 51.seconds
+    assert(Delayed::Job.where(attempts: 3).none?)
+    Scheduler.worker(true)
+    assert(Delayed::Job.where(attempts: 3).exists?)
     ticket1.reload
 
     article2_lookup = Ticket::Article.find(article2.id)
@@ -267,10 +269,12 @@ class EmailDeliverTest < ActiveSupport::TestCase
     assert(article2_lookup.preferences['delivery_status_message'])
     assert_equal('closed', ticket1.state.name)
 
-    sleep 16
+    travel 76.seconds
+    assert(Delayed::Job.where(attempts: 4).none?)
     assert_raises(RuntimeError) do
       Scheduler.worker(true)
     end
+    assert(Delayed::Job.none?)
     ticket1.reload
 
     article2_lookup = Ticket::Article.find(article2.id)

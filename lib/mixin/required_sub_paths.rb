@@ -7,7 +7,7 @@ module Mixin
       eager_load_recursive(sub_path)
     end
 
-    # Loads a directory recursivly.
+    # Loads a directory recursively.
     # The specialty of this method is that it will first load all
     # files in a directory and then start with the sub directories.
     # This is needed since otherwise some parent namespaces might not
@@ -32,7 +32,7 @@ module Mixin
           sub_paths.push(sub_path)
         elsif sub_path =~ /\A(.*)\.rb\z/
           require_path = $1
-          require(require_path)
+          require_dependency(require_path)
         end
       end
 

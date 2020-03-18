@@ -1,24 +1,25 @@
 source 'https://rubygems.org'
 
 # core - base
-ruby '2.4.4'
-gem 'rails', '5.1.6.1'
+ruby '2.6.5'
+gem 'rails', '5.2.4.1'
 
 # core - rails additions
 gem 'activerecord-import'
 gem 'activerecord-session_store'
+gem 'bootsnap', require: false
 gem 'composite_primary_keys'
 gem 'json'
 gem 'rails-observers'
 
 # core - application servers
-gem 'puma', group: :puma
+gem 'puma', '~>3.12', group: :puma
 gem 'unicorn', group: :unicorn
 
 # core - supported ORMs
 gem 'activerecord-nulldb-adapter', group: :nulldb
-gem 'mysql2', group: :mysql
-gem 'pg', group: :postgres
+gem 'mysql2', '0.4.10', group: :mysql
+gem 'pg', '0.21.0', group: :postgres
 
 # core - asynchrous task execution
 gem 'daemons'
@@ -30,6 +31,9 @@ gem 'eventmachine'
 
 # core - password security
 gem 'argon2'
+
+# core - state machine
+gem 'aasm'
 
 # performance - Memcached
 gem 'dalli'
@@ -45,7 +49,7 @@ gem 'eco'
 gem 'sassc-rails'
 
 # asset handling - pipeline
-gem 'sprockets'
+gem 'sprockets', '~> 3.7.2'
 gem 'uglifier'
 
 gem 'autoprefixer-rails'
@@ -53,14 +57,16 @@ gem 'autoprefixer-rails'
 # asset handling - javascript execution for e.g. linux
 gem 'execjs'
 gem 'libv8'
-gem 'therubyracer'
+gem 'mini_racer'
 
 # authentication - provider
 gem 'doorkeeper'
 gem 'oauth2'
 
 # authentication - third party
-gem 'omniauth'
+gem 'omniauth-rails_csrf_protection'
+
+# authentication - third party providers
 gem 'omniauth-facebook'
 gem 'omniauth-github'
 gem 'omniauth-gitlab'
@@ -68,6 +74,7 @@ gem 'omniauth-google-oauth2'
 gem 'omniauth-linkedin-oauth2'
 gem 'omniauth-microsoft-office365'
 gem 'omniauth-oauth2'
+gem 'omniauth-saml'
 gem 'omniauth-twitter'
 gem 'omniauth-weibo-oauth2'
 
@@ -78,7 +85,7 @@ gem 'twitter', git: 'https://github.com/sferik/twitter.git'
 
 # channels - email additions
 gem 'htmlentities'
-gem 'mail', '2.6.6'
+gem 'mail', git: 'https://github.com/zammad-deps/mail', branch: '2-7-stable'
 gem 'mime-types'
 gem 'rchardet', '>= 1.8.0'
 gem 'valid_email2'
@@ -105,6 +112,9 @@ gem 'telephone_number'
 # feature - SMS
 gem 'twilio-ruby'
 
+# feature - ordering
+gem 'acts_as_list'
+
 # integrations
 gem 'clearbit'
 gem 'net-ldap'
@@ -115,6 +125,9 @@ gem 'zendesk_api'
 gem 'autodiscover', git: 'https://github.com/zammad-deps/autodiscover'
 gem 'rubyntlm', git: 'https://github.com/wimm/rubyntlm'
 gem 'viewpoint'
+
+# image processing
+gem 'rszr', '0.5.2'
 
 # Gems used only for develop/test and not required
 # in production environments by default.
@@ -133,11 +146,10 @@ group :development, :test do
   gem 'pry-stack_explorer'
 
   # test frameworks
+  gem 'rails-controller-testing'
   gem 'rspec-rails'
+  gem 'shoulda-matchers'
   gem 'test-unit'
-
-  # test DB
-  gem 'sqlite3'
 
   # code coverage
   gem 'coveralls', require: false
@@ -145,6 +157,7 @@ group :development, :test do
   gem 'simplecov-rcov'
 
   # UI tests w/ Selenium
+  gem 'capybara'
   gem 'selenium-webdriver'
 
   # livereload on template changes (html, js, css)
@@ -160,6 +173,9 @@ group :development, :test do
   gem 'coffeelint'
   gem 'pre-commit'
   gem 'rubocop'
+  gem 'rubocop-performance'
+  gem 'rubocop-rails'
+  gem 'rubocop-rspec'
 
   # changelog generation
   gem 'github_changelog_generator'
@@ -174,6 +190,9 @@ group :development, :test do
   # record and replay TCP/HTTP transactions
   gem 'tcr', git: 'https://github.com/zammad-deps/tcr'
   gem 'vcr'
+
+  # handle deprecations in core and addons
+  gem 'deprecation_toolkit'
 end
 
 # Want to extend Zammad with additional gems?

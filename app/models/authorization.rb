@@ -1,7 +1,7 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class Authorization < ApplicationModel
-  belongs_to    :user
+  belongs_to    :user, optional: true
   after_create  :delete_user_cache
   after_update  :delete_user_cache
   after_destroy :delete_user_cache
@@ -15,7 +15,7 @@ class Authorization < ApplicationModel
 
       # update auth tokens
       auth.update!(
-        token: hash['credentials']['token'],
+        token:  hash['credentials']['token'],
         secret: hash['credentials']['secret']
       )
 
@@ -40,11 +40,11 @@ class Authorization < ApplicationModel
       # update image if needed
       if hash['info']['image'].present?
         avatar = Avatar.add(
-          object: 'User',
-          o_id: user.id,
-          url: hash['info']['image'],
-          source: hash['provider'],
-          deletable: true,
+          object:        'User',
+          o_id:          user.id,
+          url:           hash['info']['image'],
+          source:        hash['provider'],
+          deletable:     true,
           updated_by_id: user.id,
           created_by_id: user.id,
         )
@@ -75,11 +75,11 @@ class Authorization < ApplicationModel
     # save/update avatar
     if hash['info'].present? && hash['info']['image'].present?
       avatar = Avatar.add(
-        object: 'User',
-        o_id: user.id,
-        url: hash['info']['image'],
-        source: hash['provider'],
-        deletable: true,
+        object:        'User',
+        o_id:          user.id,
+        url:           hash['info']['image'],
+        source:        hash['provider'],
+        deletable:     true,
         updated_by_id: user.id,
         created_by_id: user.id,
       )
@@ -92,12 +92,12 @@ class Authorization < ApplicationModel
     end
 
     Authorization.create!(
-      user: user,
-      uid: hash['uid'],
+      user:     user,
+      uid:      hash['uid'],
       username: hash['info']['nickname'] || hash['info']['username'] || hash['info']['name'] || hash['info']['email'] || hash['username'],
       provider: hash['provider'],
-      token: hash['credentials']['token'],
-      secret: hash['credentials']['secret']
+      token:    hash['credentials']['token'],
+      secret:   hash['credentials']['secret']
     )
   end
 

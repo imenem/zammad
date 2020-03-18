@@ -58,7 +58,7 @@ returns
       client_id,
       {
         event: 'ws:login',
-        data: { success: true },
+        data:  { success: true },
       }
     )
   end
@@ -440,8 +440,7 @@ returns
       files.push entry
     end
     files.sort.each do |entry|
-      filename = "#{path}/#{entry}"
-      next if entry !~ /^send/
+      next if !entry.match?(/^send/)
 
       message = Sessions.queue_file_read(path, entry)
       next if !message
@@ -463,10 +462,10 @@ returns
     return if message.blank?
 
     begin
-      return JSON.parse(message)
+      JSON.parse(message)
     rescue => e
       log('error', "can't parse queue message: #{message}, #{e.inspect}")
-      return
+      nil
     end
   end
 
@@ -498,7 +497,7 @@ create spool messages
     path = "#{@path}/spool/"
     FileUtils.mkpath path
     data = {
-      msg: msg,
+      msg:       msg,
       timestamp: Time.now.utc.to_i,
     }
     file_path = "#{path}/#{Time.now.utc.to_f}-#{rand(99_999)}"
@@ -520,6 +519,7 @@ get spool messages
   def self.spool_list(timestamp, current_user_id)
     path = "#{@path}/spool/"
     FileUtils.mkpath path
+
     data      = []
     to_delete = []
     files     = []
@@ -572,7 +572,7 @@ get spool messages
               end
 
               item = {
-                type: 'direct',
+                type:    'direct',
                 message: message,
               }
               data.push item
@@ -585,7 +585,7 @@ get spool messages
               message = message_parsed['data']
             end
             item = {
-              type: 'broadcast',
+              type:    'broadcast',
               message: message,
             }
             data.push item

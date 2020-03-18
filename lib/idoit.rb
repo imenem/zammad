@@ -106,15 +106,19 @@ or with filter:
     result = UserAgent.post(
       url,
       {
-        method: method,
-        params: params,
+        method:  method,
+        params:  params,
         version: '2.0',
+        # the id attribute is required by the JSON-RPC standard
+        # but i-doit doesn't actually use it so we send a hard coded id
+        # see issue #2412 and community topic for further information
+        id:      42,
       },
       {
-        json: true,
+        json:         true,
         open_timeout: 6,
         read_timeout: 16,
-        log: {
+        log:          {
           facility: 'idoit',
         },
       },
@@ -137,7 +141,7 @@ or with filter:
 
   def self._url_cleanup(url)
     url.strip!
-    raise "Invalid endpoint '#{url}', need to start with http:// or https://" if url !~ %r{^http(s|)://}i
+    raise "Invalid endpoint '#{url}', need to start with http:// or https://" if !url.match?(%r{^http(s|)://}i)
 
     url = _url_cleanup_baseurl(url)
     url = "#{url}/src/jsonrpc.php"
@@ -146,7 +150,7 @@ or with filter:
 
   def self._url_cleanup_baseurl(url)
     url.strip!
-    raise "Invalid endpoint '#{url}', need to start with http:// or https://" if url !~ %r{^http(s|)://}i
+    raise "Invalid endpoint '#{url}', need to start with http:// or https://" if !url.match?(%r{^http(s|)://}i)
 
     url.gsub!(%r{src/jsonrpc.php}, '')
     url.gsub(%r{([^:])//+}, '\\1/')

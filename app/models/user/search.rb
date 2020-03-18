@@ -34,7 +34,7 @@ returns if user has no permissions to search
         return false if !current_user.permissions?('ticket.agent') && !current_user.permissions?('admin.user')
 
         {
-          prio: 2000,
+          prio:                2000,
           direct_search_index: true,
         }
       end
@@ -83,11 +83,11 @@ returns
         offset = params[:offset] || 0
         current_user = params[:current_user]
 
-        # check sort
-        sort_by = search_get_sort_by(params, 'updated_at')
+        # check sort - positions related to order by
+        sort_by = search_get_sort_by(params, %w[active updated_at])
 
-        # check order
-        order_by = search_get_order_by(params, 'desc')
+        # check order - positions related to sort by
+        order_by = search_get_order_by(params, %w[desc desc])
 
         # enable search only for agents and admins
         return [] if !search_preferences(current_user)
@@ -114,11 +114,11 @@ returns
             query_extension['bool']['must'].push access_condition
           end
 
-          items = SearchIndexBackend.search(query, 'User', limit: limit,
+          items = SearchIndexBackend.search(query, 'User', limit:           limit,
                                                            query_extension: query_extension,
-                                                           from: offset,
-                                                           sort_by: sort_by,
-                                                           order_by: order_by)
+                                                           from:            offset,
+                                                           sort_by:         sort_by,
+                                                           order_by:        order_by)
           users = []
           items.each do |item|
             user = User.lookup(id: item[:id])
@@ -137,11 +137,17 @@ returns
         users = if params[:role_ids]
                   User.joins(:roles).where('roles.id' => params[:role_ids]).where(
                     '(users.firstname LIKE ? OR users.lastname LIKE ? OR users.email LIKE ? OR users.login LIKE ?) AND users.id != 1', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
-                  ).order(order_sql).offset(offset).limit(limit)
+                  )
+                  .order(Arel.sql(order_sql))
+                  .offset(offset)
+                  .limit(limit)
                 else
                   User.where(
                     '(firstname LIKE ? OR lastname LIKE ? OR email LIKE ? OR login LIKE ?) AND id != 1', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
-                  ).order(order_sql).offset(offset).limit(limit)
+                  )
+                  .order(Arel.sql(order_sql))
+                  .offset(offset)
+                  .limit(limit)
                 end
         users
       end

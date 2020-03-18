@@ -63,7 +63,7 @@ App.Ajax.request({
 // ajax parallel
 App.Ajax.request({
   type:  'GET',
-  url:   '/tests/wait/2',
+  url:   '/tests/wait/3',
   success: function (data) {
     test( "ajax - parallel - ajax get 200 1/2", function() {
 
@@ -365,8 +365,8 @@ test('i18n', function() {
   translated = App.i18n.translateContent('§%s§ %s test', 123, 'xxx')
   equal(translated, '<kbd>123</kbd> xxx test', 'en-us - §%s§ %s')
 
-  translated = App.i18n.translateContent('Here you can search for ticket, customers and organizations. Use the wildcard §*§ to find everything. E. g. §smi*§ or §rosent*l§. You also can use ||double quotes|| for searching phrases §"some phrase"§.')
-  equal(translated, 'Here you can search for ticket, customers and organizations. Use the wildcard <kbd>*</kbd> to find everything. E. g. <kbd>smi*</kbd> or <kbd>rosent*l</kbd>. You also can use <i>double quotes</i> for searching phrases <kbd>&quot;some phrase&quot;</kbd>.', 'en-us - §§ §§ §§ || §§')
+  translated = App.i18n.translateContent('Here you can search for tickets, customers and organizations. Use the wildcard §*§ to find everything. E. g. §smi*§ or §rosent*l§. You also can use ||double quotes|| for searching phrases §"some phrase"§.')
+  equal(translated, 'Here you can search for tickets, customers and organizations. Use the wildcard <kbd>*</kbd> to find everything. E. g. <kbd>smi*</kbd> or <kbd>rosent*l</kbd>. You also can use <i>double quotes</i> for searching phrases <kbd>&quot;some phrase&quot;</kbd>.', 'en-us - §§ §§ §§ || §§')
 
   translated = App.i18n.translateContent('//%s// %s test', 123, 'xxx')
   equal(translated, '<del>123</del> xxx test', 'en-us - //%s// %s')
@@ -787,14 +787,14 @@ App.Auth.login({
 var authWithSession = function() {
   App.Auth.login({
     data: {
-      username: 'nicole.braun@zammad.org',
+      username: 'master@example.com',
       password: 'test',
     },
     success: function(data) {
       test('auth - existing user', function() {
         ok(true, 'authenticated')
         var user = App.Session.get('login')
-        equal('nicole.braun@zammad.org', user, 'session login')
+        equal('master@example.com', user, 'session login')
       })
     },
     error: function() {

@@ -7,7 +7,7 @@ namespace :zammad do
       namespace :puma do
 
         desc 'Starts the puma application webserver'
-        task :start, [:port, :env] do |_task, args|
+        task :start, [:port, :env] do |_task, args| # rubocop:disable Rails/RakeEnvironment
 
           port    = args.fetch(:port, '3000')
           env     = args.fetch(:env, 'production')
@@ -24,7 +24,7 @@ namespace :zammad do
             env
           ]
 
-          stdout, stderr, status = Open3.capture3(*command)
+          _stdout, stderr, status = Open3.capture3(*command)
 
           next if status.success?
 

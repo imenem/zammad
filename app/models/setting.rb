@@ -176,7 +176,7 @@ reload config settings
 
   # convert state into hash to be able to store it as store
   def state_check
-    return true if !state
+    return true if state.nil?  # allow false value
     return true if state.try(:key?, :value)
 
     self.state_current = { value: state }
@@ -194,7 +194,7 @@ reload config settings
     Sessions.broadcast(
       {
         event: 'config_update',
-        data: { name: name, value: value }
+        data:  { name: name, value: value }
       },
       'public'
     )

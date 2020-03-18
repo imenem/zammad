@@ -14,12 +14,13 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
     item = $(App.view('object_manager/attribute')(attribute: attribute))
 
     updateDataMap = (localParams, localAttribute, localAttributes, localClassname, localForm, localA) =>
-      localItem = localForm.closest('.js-data')
+      return if !localParams.data_type
       element = $(App.view("object_manager/attribute/#{localParams.data_type}")(
         attribute: attribute
         params: params
       ))
       @[localParams.data_type](element, localParams, params, attribute)
+      localItem = localForm.closest('.js-data')
       localItem.find('.js-dataMap').html(element)
       localItem.find('.js-dataScreens').html(@dataScreens(attribute, localParams, params))
 
@@ -42,6 +43,7 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
       { name: attribute.name, display: '', tag: 'select', null: false, options: options, translate: true, default: 'input', disabled: attribute.disabled },
     ]
     dataType = new App.ControllerForm(
+      el: item.find('.js-dataType')
       model:
         configure_attributes: configureAttributes
       noFieldset: true
@@ -50,8 +52,8 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
       ]
       params: params
     )
-    item.find('.js-dataType').html(dataType.form)
     item.find('.js-boolean').data('field-type', 'boolean')
+    item.find('.js-dataType [name="data_type"]').trigger('change')
     item
 
   @dataScreens: (attribute, localParams, params) ->
@@ -192,9 +194,21 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
       noFieldset: true
       params: params
     )
+    configureAttributes = [
+      # coffeelint: disable=no_interpolation_in_single_quotes
+      { name: 'data_option::linktemplate', display: 'Link-Template', tag: 'input', type: 'text', null: true, default: '', placeholder: 'https://example.com/?q=#{object.attribute_name} - use ticket, user or organization as object' },
+      # coffeelint: enable=no_interpolation_in_single_quotes
+    ]
+    inputLinkTemplate = new App.ControllerForm(
+      model:
+        configure_attributes: configureAttributes
+      noFieldset: true
+      params: params
+    )
     item.find('.js-inputDefault').html(inputDefault.form)
     item.find('.js-inputType').html(inputType.form)
     item.find('.js-inputMaxlength').html(inputMaxlength.form)
+    item.find('.js-inputLinkTemplate').html(inputLinkTemplate.form)
 
   @datetime: (item, localParams, params) ->
     configureAttributes = [
@@ -230,24 +244,6 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
 
   @date: (item, localParams, params) ->
     configureAttributes = [
-      { name: 'data_option::future', display: 'Allow future', tag: 'boolean', null: false, default: true },
-    ]
-    dateFuture = new App.ControllerForm(
-      model:
-        configure_attributes: configureAttributes
-      noFieldset: true
-      params: params
-    )
-    configureAttributes = [
-      { name: 'data_option::past', display: 'Allow past', tag: 'boolean', null: false, default: true },
-    ]
-    datePast = new App.ControllerForm(
-      model:
-        configure_attributes: configureAttributes
-      noFieldset: true
-      params: params
-    )
-    configureAttributes = [
       { name: 'data_option::diff', display: 'Default time Diff (hours)', tag: 'integer', null: false, default: 24 },
     ]
     dateDiff = new App.ControllerForm(
@@ -256,8 +252,6 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
       noFieldset: true
       params: params
     )
-    item.find('.js-dateFuture').html(dateFuture.form)
-    item.find('.js-datePast').html(datePast.form)
     item.find('.js-dateDiff').html(dateDiff.form)
 
   @integer: (item, localParams, params) ->
@@ -329,6 +323,18 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
         return
       lastSelected = value
     )
+    configureAttributes = [
+      # coffeelint: disable=no_interpolation_in_single_quotes
+      { name: 'data_option::linktemplate', display: 'Link-Template', tag: 'input', type: 'text', null: true, default: '', placeholder: 'https://example.com/?q=#{ticket.attribute_name}' },
+      # coffeelint: enable=no_interpolation_in_single_quotes
+    ]
+    inputLinkTemplate = new App.ControllerForm(
+      model:
+        configure_attributes: configureAttributes
+      noFieldset: true
+      params: params
+    )
+    item.find('.js-inputLinkTemplate').html(inputLinkTemplate.form)
 
   @buildRow: (element, child, level = 0, parentElement) ->
     newRow = element.find('.js-template').clone().removeClass('js-template')

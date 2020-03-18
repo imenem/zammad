@@ -25,7 +25,6 @@ class Stats::TicketWaitingTime
       average_per_agent = (average_per_agent / 60).round
     end
 
-    state   = 'supergood'
     percent = 0
     state   = if handling_time <= 60
                 percent = handling_time.to_f / 60
@@ -42,10 +41,10 @@ class Stats::TicketWaitingTime
               end
 
     {
-      handling_time: handling_time,
+      handling_time:     handling_time,
       average_per_agent: average_per_agent,
-      state: state,
-      percent: percent,
+      state:             state,
+      percent:           percent,
     }
   end
 

@@ -16,8 +16,10 @@ returns
   def self.rebuild_all
     state_list_open = Ticket::State.by_category(:open)
 
-    ticket_ids = Ticket.where(state_id: state_list_open).pluck(:id)
+    ticket_ids = Ticket.where(state_id: state_list_open).limit(20_000).pluck(:id)
     ticket_ids.each do |ticket_id|
+      next if !Ticket.exists?(ticket_id)
+
       Ticket.find(ticket_id).escalation_calculation(true)
     end
   end
@@ -50,7 +52,7 @@ returns
     # return if we run import mode
     return if Setting.get('import_mode') && !Setting.get('import_ignore_sla')
 
-    # set escalation off if current state is not escalation relativ (e. g. ticket is closed)
+    # set escalation off if current state is not escalation relative (e.g. ticket is closed)
     return if !state_id
 
     state = Ticket::State.lookup(id: state_id)
@@ -58,7 +60,7 @@ returns
     if state.ignore_escalation?
       escalation_disabled = true
 
-      # early exit if nothing current state is not escalation relativ
+      # early exit if nothing current state is not escalation relative
       if !force
         return false if escalation_at.nil?
 
@@ -152,39 +154,7 @@ returns
       self.update_escalation_at    = nil
       self.close_escalation_at     = nil
     end
-    biz = Biz::Schedule.new do |config|
-
-      # get business hours
-      hours = {}
-      calendar.business_hours.each do |day, meta|
-        next if !meta[:active]
-        next if !meta[:timeframes]
-
-        hours[day.to_sym] = {}
-        meta[:timeframes].each do |frame|
-          next if !frame[0]
-          next if !frame[1]
-
-          hours[day.to_sym][frame[0]] = frame[1]
-        end
-      end
-      config.hours = hours
-      if hours.blank?
-        raise "No configured hours found in calendar #{calendar.inspect}"
-      end
-
-      # get holidays
-      holidays = []
-      calendar.public_holidays&.each do |day, meta|
-        next if !meta
-        next if !meta['active']
-        next if meta['removed']
-
-        holidays.push Date.parse(day)
-      end
-      config.holidays = holidays
-      config.time_zone = calendar.timezone
-    end
+    biz = calendar.biz
 
     # get history data
     history_data = nil
@@ -266,12 +236,12 @@ returns
 
     # remember already counted time to do on next update only the diff
     preferences[:escalation_calculation] = {
-      first_response_at: first_response_at,
-      last_update_at: last_update_at,
-      close_at: close_at,
-      sla_id: sla.id,
-      sla_updated_at: sla.updated_at,
-      calendar_id: calendar.id,
+      first_response_at:   first_response_at,
+      last_update_at:      last_update_at,
+      close_at:            close_at,
+      sla_id:              sla.id,
+      sla_updated_at:      sla.updated_at,
+      calendar_id:         calendar.id,
       calendar_updated_at: calendar.updated_at,
       escalation_disabled: escalation_disabled,
     }
@@ -372,10 +342,10 @@ returns
         local_updated_at = saved_change_to_attribute('updated_at')[1]
       end
       history_item = {
-        'attribute' => 'state',
+        'attribute'  => 'state',
         'created_at' => local_updated_at,
         'value_from' => Ticket::State.find(saved_change_to_attribute('state_id')[0]).name,
-        'value_to' => Ticket::State.find(saved_change_to_attribute('state_id')[1]).name,
+        'value_to'   => Ticket::State.find(saved_change_to_attribute('state_id')[1]).name,
       }
       if last_history_state
         last_history_state = history_item

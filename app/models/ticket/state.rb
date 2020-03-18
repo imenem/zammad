@@ -1,9 +1,11 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 class Ticket::State < ApplicationModel
+  include CanBeImported
   include ChecksLatestChangeObserved
+  include HasCollectionUpdate
 
-  belongs_to :state_type, class_name: 'Ticket::StateType', inverse_of: :states
-  belongs_to :next_state, class_name: 'Ticket::State'
+  belongs_to :state_type, class_name: 'Ticket::StateType', inverse_of: :states, optional: true
+  belongs_to :next_state, class_name: 'Ticket::State', optional: true
 
   after_create  :ensure_defaults
   after_update  :ensure_defaults

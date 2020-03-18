@@ -10,12 +10,11 @@ class TicketOverviewsController < ApplicationController
       index_and_lists = Ticket::Overviews.index(current_user)
       indexes = []
       index_and_lists.each do |index|
-        assets = {}
         overview = Overview.lookup(id: index[:overview][:id])
         meta = {
-          name: overview.name,
-          prio: overview.prio,
-          link: overview.link,
+          name:  overview.name,
+          prio:  overview.prio,
+          link:  overview.link,
           count: index[:count],
         }
         indexes.push meta
@@ -42,7 +41,7 @@ class TicketOverviewsController < ApplicationController
 
     render json: {
       assets: assets,
-      index: result,
+      index:  result,
     }
   end
 

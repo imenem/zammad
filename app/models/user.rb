@@ -1,35 +1,37 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
+require_dependency 'karma/user'
+
 class User < ApplicationModel
+  include CanBeImported
   include HasActivityStreamLog
   include ChecksClientNotification
   include HasHistory
   include HasSearchIndexBackend
   include CanCsvImport
+  include ChecksHtmlSanitized
   include HasGroups
   include HasRoles
-
+  include HasObjectManagerAttributesValidation
+  include HasTicketCreateScreenImpact
+  include User::HasTicketCreateScreenImpact
   include User::ChecksAccess
   include User::Assets
   include User::Search
   include User::SearchIndex
 
-  has_and_belongs_to_many :roles,          after_add: %i[cache_update check_notifications], after_remove: :cache_update, before_add: %i[validate_agent_limit_by_role validate_roles], before_remove: :last_admin_check_by_role, class_name: 'Role'
   has_and_belongs_to_many :organizations,  after_add: :cache_update, after_remove: :cache_update, class_name: 'Organization'
   has_many                :tokens,         after_add: :cache_update, after_remove: :cache_update
   has_many                :authorizations, after_add: :cache_update, after_remove: :cache_update
-  belongs_to              :organization,   inverse_of: :members
+  belongs_to              :organization,   inverse_of: :members, optional: true
 
   before_validation :check_name, :check_email, :check_login, :ensure_uniq_email, :ensure_password, :ensure_roles, :ensure_identifier
   before_validation :check_mail_delivery_failed, on: :update
   before_create     :check_preferences_default, :validate_preferences, :validate_ooo, :domain_based_assignment, :set_locale
   before_update     :check_preferences_default, :validate_preferences, :validate_ooo, :reset_login_failed, :validate_agent_limit_by_attributes, :last_admin_check_by_attribute
-  after_create      :avatar_for_email_check
-  after_update      :avatar_for_email_check
+  after_create      :avatar_for_email_check, unless: -> { BulkImportInfo.enabled? }
+  after_update      :avatar_for_email_check, unless: -> { BulkImportInfo.enabled? }
   after_commit      :update_caller_id
   before_destroy    :destroy_longer_required_objects
-
-  skip_callback :create, :after, :avatar_for_email_check, if: -> { BulkImportInfo.enabled? }
-  skip_callback :update, :after, :avatar_for_email_check, if: -> { BulkImportInfo.enabled? }
 
   store :preferences
 
@@ -64,6 +66,8 @@ class User < ApplicationModel
                          :organizations,
                          :groups,
                          :user_groups
+
+  sanitized_html :note
 
   def ignore_search_indexing?(_action)
     # ignore internal user
@@ -329,27 +333,6 @@ returns
 
 =begin
 
-authenticate user agains sso
-
-  result = User.sso(sso_params)
-
-returns
-
-  result = user_model # user model if authentication was successfully
-
-=end
-
-  def self.sso(params)
-
-    # try to login against configure auth backends
-    user_auth = Sso.check(params)
-    return if !user_auth
-
-    user_auth
-  end
-
-=begin
-
 create user from from omni auth hash
 
   result = User.create_from_hash!(hash)
@@ -370,15 +353,15 @@ returns
     end
     begin
       data = {
-        login: hash['info']['nickname'] || hash['uid'],
-        firstname: hash['info']['name'] || hash['info']['display_name'],
-        email: hash['info']['email'],
-        image_source: hash['info']['image'],
-        web: url,
-        address: hash['info']['location'],
-        note: hash['info']['description'],
-        source: hash['provider'],
-        role_ids: Role.signup_role_ids,
+        login:         hash['info']['nickname'] || hash['uid'],
+        firstname:     hash['info']['name'] || hash['info']['display_name'],
+        email:         hash['info']['email'],
+        image_source:  hash['info']['image'],
+        web:           url,
+        address:       hash['info']['location'],
+        note:          hash['info']['description'],
+        source:        hash['provider'],
+        role_ids:      Role.signup_role_ids,
         updated_by_id: 1,
         created_by_id: 1,
       }
@@ -439,7 +422,6 @@ returns
 
   def permissions?(key)
     keys = key
-    names = []
     if key.class == String
       keys = [key]
     end
@@ -570,7 +552,7 @@ returns
 
     {
       token: token,
-      user: user,
+      user:  user,
     }
   end
 
@@ -630,7 +612,10 @@ returns
 =end
 
   def update_last_login
-    self.last_login = Time.zone.now
+    # reduce DB/ES load by updating last_login every 10 minutes only
+    if !last_login || last_login < 10.minutes.ago
+      self.last_login = Time.zone.now
+    end
 
     # reset login failed
     self.login_failed = 0
@@ -662,7 +647,7 @@ returns
 
     {
       token: token,
-      user: user,
+      user:  user,
     }
   end
 
@@ -710,10 +695,16 @@ returns
 
   def merge(user_id_of_duplicate_user)
 
-    # find email addresses and move them to primary user
-    duplicate_user = User.find(user_id_of_duplicate_user)
+    # Raise an exception if the user is not found (?)
+    #
+    # (This line used to contain a useless variable assignment,
+    # and was changed to satisfy the linter.
+    # We're not certain of its original intention,
+    # so the User.find call has been kept
+    # to prevent any unexpected regressions.)
+    User.find(user_id_of_duplicate_user)
 
-    # merge missing attibutes
+    # merge missing attributes
     Models.merge('User', id, user_id_of_duplicate_user)
 
     true
@@ -747,7 +738,7 @@ returns
 
 =begin
 
-update/sync default preferences of users in a dedecated permissions
+update/sync default preferences of users with dedicated permissions
 
   result = User.update_default_preferences_by_permission('ticket.agent', force)
 
@@ -784,7 +775,7 @@ returns
 
 =begin
 
-update/sync default preferences of users in a dedecated role
+update/sync default preferences of users in a dedicated role
 
   result = User.update_default_preferences_by_role('Agent', force)
 
@@ -925,6 +916,11 @@ try to find correct name
     firstname.blank? && lastname.blank?
   end
 
+  # get locale identifier of user or system if user's own is not set
+  def locale
+    preferences.fetch(:locale) { Locale.default }
+  end
+
   private
 
   def check_name
@@ -963,8 +959,11 @@ try to find correct name
 
     self.email = email.downcase.strip
     return true if id == 1
-    raise Exceptions::UnprocessableEntity, 'Invalid email' if email !~ /@/
-    raise Exceptions::UnprocessableEntity, 'Invalid email' if email.match?(/\s/)
+
+    email_address_validation = EmailAddressValidation.new(email)
+    if !email_address_validation.valid_format?
+      raise Exceptions::UnprocessableEntity, "Invalid email '#{email}'"
+    end
 
     true
   end
@@ -1027,9 +1026,9 @@ try to find correct name
     return true if email.blank?
     return true if !changes
     return true if !changes['email']
-    return true if !User.find_by(email: email.downcase.strip)
+    return true if !User.exists?(email: email.downcase.strip)
 
-    raise Exceptions::UnprocessableEntity, 'Email address is already used for other user.'
+    raise Exceptions::UnprocessableEntity, "Email address '#{email.downcase.strip}' is already used for other user."
   end
 
   def validate_roles(role)
@@ -1186,15 +1185,18 @@ raise 'Minimum one user need to have admin permissions'
   def avatar_for_email_check
     return true if Setting.get('import_mode')
     return true if email.blank?
-    return true if email !~ /@/
+
+    email_address_validation = EmailAddressValidation.new(email)
+    return true if !email_address_validation.valid_format?
+
     return true if !saved_change_to_attribute?('email') && updated_at > Time.zone.now - 10.days
 
     # save/update avatar
     avatar = Avatar.auto_detection(
-      object: 'User',
-      o_id: id,
-      url: email,
-      source: 'app',
+      object:        'User',
+      o_id:          id,
+      url:           email,
+      source:        'app',
       updated_by_id: updated_by_id,
       created_by_id: updated_by_id,
     )
@@ -1220,31 +1222,28 @@ raise 'Minimum one user need to have admin permissions'
     ::Token.where(user_id: id).destroy_all
     ::StatsStore.remove(
       object: 'User',
-      o_id: id,
+      o_id:   id,
     )
     true
   end
 
   def ensure_password
-    return true if password_empty?
-    return true if PasswordHash.crypted?(password)
-
-    self.password = PasswordHash.crypt(password)
+    self.password = ensured_password
     true
   end
 
-  def password_empty?
-    # set old password again if not given
-    return if password.present?
+  def ensured_password
+    # ensure unset password for blank values of new users
+    return nil if new_record? && password.blank?
 
-    # skip if it's not desired to set a password (yet)
-    return true if !password
+    # don't permit empty password update for existing users
+    return password_was if password.blank?
 
-    # get current record
-    return if !id
+    # don't re-hash passwords
+    return password if PasswordHash.crypted?(password)
 
-    self.password = password_was
-    true
+    # hash the plaintext password
+    PasswordHash.crypt(password)
   end
 
   # reset login_failed if password is changed

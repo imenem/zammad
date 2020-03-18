@@ -52,7 +52,6 @@ curl http://localhost/api/v1/slas.json -v -u #{login}:#{password}
 
       # calendars
       assets = {}
-      calendar_ids = []
       Calendar.all.each do |calendar|
         assets = calendar.assets(assets)
       end
@@ -65,7 +64,7 @@ curl http://localhost/api/v1/slas.json -v -u #{login}:#{password}
       end
       render json: {
         record_ids: sla_ids,
-        assets: assets,
+        assets:     assets,
       }, status: :ok
       return
     end

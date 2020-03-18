@@ -5,27 +5,30 @@ class NotificationFactory::Renderer
 examples how to use
 
     message_subject = NotificationFactory::Renderer.new(
-      {
+      objects: {
         ticket: Ticket.first,
       },
-      'de-de',
-      'some template <b>#{ticket.title}</b> {config.fqdn}',
-      false
+      locale: 'de-de',
+      timezone: 'America/Port-au-Prince',
+      template: 'some template <b>#{ticket.title}</b> {config.fqdn}',
+      escape: false
     ).render
 
     message_body = NotificationFactory::Renderer.new(
-      {
+      objects: {
         ticket: Ticket.first,
       },
-      'de-de',
-      'some template <b>#{ticket.title}</b> #{config.fqdn}',
+      locale: 'de-de',
+      timezone: 'America/Port-au-Prince',
+      template: 'some template <b>#{ticket.title}</b> #{config.fqdn}',
     ).render
 
 =end
 
-  def initialize(objects, locale, template, escape = true)
-    @objects = objects
-    @locale = locale || Setting.get('locale_default') || 'en-us'
+  def initialize(objects:, locale: nil, timezone: nil, template:, escape: true)
+    @objects  = objects
+    @locale   = locale || Locale.default
+    @timezone = timezone || Setting.get('timezone_default')
     @template = NotificationFactory::Template.new(template, escape)
     @escape = escape
   end
@@ -38,7 +41,7 @@ examples how to use
   # d('user.firstname', htmlEscape)
   def d(key, escape = nil)
 
-    # do validaton, ignore some methodes
+    # do validation, ignore some methods
     return "\#{#{key} / not allowed}" if !data_key_valid?(key)
 
     # aliases
@@ -52,7 +55,7 @@ examples how to use
     # escape in html mode
     if escape
       no_escape = {
-        'article.body_as_html' => true,
+        'article.body_as_html'                      => true,
         'article.body_as_text_with_quote.text2html' => true,
       }
       if no_escape[key]
@@ -69,7 +72,7 @@ examples how to use
 
     object_refs = @objects[object_name] || @objects[object_name.to_sym]
 
-    # if object is not in avalable objects, just return
+    # if object is not in available objects, just return
     return "\#{#{object_name} / no such object}" if !object_refs
 
     # if content of method is a complex datatype, just return
@@ -126,6 +129,11 @@ examples how to use
       begin
         previous_object_refs = object_refs
         object_refs = object_refs.send(method.to_sym, *arguments)
+
+        # body_as_html should trigger the cloning of all inline attachments from the parent article (issue #2399)
+        if method.to_sym == :body_as_html && previous_object_refs.respond_to?(:should_clone_inline_attachments)
+          previous_object_refs.should_clone_inline_attachments = true
+        end
       rescue => e
         value = "\#{#{object_name}.#{object_methods_s} / #{e.message}}"
         break
@@ -136,7 +144,8 @@ examples how to use
                   else
                     value
                   end
-    escaping(placeholder, escape)
+
+    escaping(convert_to_timezone(placeholder), escape)
   end
 
   # c - config
@@ -154,14 +163,21 @@ examples how to use
   end
 
   # h - htmlEscape
-  # h('fqdn', htmlEscape)
-  def h(key)
-    return key if !key
+  # h(htmlEscape)
+  def h(value)
+    return value if !value
 
-    CGI.escapeHTML(key.to_s)
+    CGI.escapeHTML(convert_to_timezone(value).to_s)
   end
 
   private
+
+  def convert_to_timezone(value)
+    return Translation.timestamp(@locale, @timezone, value) if value.class == ActiveSupport::TimeWithZone
+    return Translation.date(@locale, value) if value.class == Date
+
+    value
+  end
 
   def escaping(key, escape)
     return key if escape == false

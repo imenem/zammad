@@ -83,8 +83,8 @@
         .show()
         .scrollTop(0)
 
-      if (that.options.backdrop) that.adjustBackdrop()
       that.adjustDialog()
+      if (that.options.backdrop) that.adjustBackdrop()
 
       if (transition) {
         that.$element[0].offsetWidth // force reflow
@@ -241,8 +241,8 @@
   // these following methods are used to handle overflowing modals
 
   Modal.prototype.handleUpdate = function () {
-    if (this.options.backdrop) this.adjustBackdrop()
     this.adjustDialog()
+    if (this.options.backdrop) this.adjustBackdrop()
   }
 
   Modal.prototype.adjustBackdrop = function () {
@@ -257,8 +257,8 @@
       left: this.$body.offset().left,
       top: this.$body.offset().top,
       width: this.$body.width(),
-      paddingLeft:  !this.bodyIsOverflowing && modalIsOverflowing ? this.scrollbarWidth : '',
-      paddingRight: this.bodyIsOverflowing && !modalIsOverflowing ? this.scrollbarWidth : ''
+      paddingLeft:  !this.bodyIsOverflowing && modalIsOverflowing && this.scrollbarWidth > 0 ? this.scrollbarWidth : '',
+      paddingRight: this.bodyIsOverflowing && !modalIsOverflowing && this.scrollbarWidth > 0 ? this.scrollbarWidth : ''
     }
 
     if(App.i18n.dir() == 'rtl'){

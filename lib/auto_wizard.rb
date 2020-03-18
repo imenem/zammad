@@ -90,16 +90,15 @@ returns
 
     # create Permissions/Organization
     model_map = {
-      'Permissions' => 'Permission',
+      'Permissions'   => 'Permission',
       'Organizations' => 'Organization',
     }
     model_map.each do |map_name, model|
       next if !auto_wizard_hash[map_name]
 
       auto_wizard_hash[map_name].each do |data|
-        generic_object = Kernel.const_get(model)
         data.symbolize_keys!
-        generic_object.create_or_update_with_ref(data)
+        model.constantize.create_or_update_with_ref(data)
       end
     end
 
@@ -141,9 +140,8 @@ returns
       next if !auto_wizard_hash[map_name]
 
       auto_wizard_hash[map_name].each do |data|
-        generic_object = Kernel.const_get(model)
         data.symbolize_keys!
-        generic_object.create_or_update_with_ref(data)
+        model.constantize.create_or_update_with_ref(data)
       end
     end
 

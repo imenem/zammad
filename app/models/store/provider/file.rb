@@ -19,7 +19,7 @@ class Store::Provider::File
 
     # write file to file system
     if !File.exist?(location)
-      Rails.logger.debug { "storge write '#{location}' (#{permission})" }
+      Rails.logger.debug { "storage write '#{location}' (#{permission})" }
       file = File.new(location, 'wb')
       file.write(data)
       file.close
@@ -59,7 +59,7 @@ class Store::Provider::File
   def self.delete(sha)
     location = get_location(sha)
     if File.exist?(location)
-      Rails.logger.info "storge remove '#{location}'"
+      Rails.logger.info "storage remove '#{location}'"
       File.delete(location)
     end
 
@@ -69,6 +69,7 @@ class Store::Provider::File
       local_location = locations[0, count].join('/')
       break if local_location.match?(%r{storage/fs/{0,4}$})
       break if Dir["#{local_location}/*"].present?
+      next if !Dir.exist?(local_location)
 
       FileUtils.rmdir(local_location)
     end
@@ -78,7 +79,7 @@ class Store::Provider::File
   def self.get_location(sha)
 
     # generate directory
-    base = Rails.root.join('storage', 'fs').to_s
+    base = Rails.root.join('storage/fs').to_s
     parts = []
     length1 = 4
     length2 = 5
@@ -99,6 +100,7 @@ class Store::Provider::File
       parts.push sha[last_position, length3]
       last_position = end_position
     end
+
     path     = parts[ 0..6 ].join('/') + '/'
     file     = sha[last_position, sha.length]
     location = "#{base}/#{path}"
@@ -107,7 +109,7 @@ class Store::Provider::File
     if !File.exist?(location)
       FileUtils.mkdir_p(location)
     end
-    full_path = location += file
+    full_path = location + file
     full_path.gsub('//', '/')
   end
 

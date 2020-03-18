@@ -30,7 +30,7 @@ class Observer::Ticket::Article::CommunicateTwitter::BackgroundJob
     end
 
     log_error(article, "No such channel id #{ticket.preferences['channel_id']}") if !channel
-    log_error(article, "Channel.find(#{channel.id}) isn't a twitter channel!") if channel.options[:adapter] !~ /\Atwitter/i
+    log_error(article, "Channel.find(#{channel.id}) isn't a twitter channel!") if !channel.options[:adapter].match?(/\Atwitter/i)
 
     begin
       tweet = channel.deliver(
@@ -51,24 +51,30 @@ class Observer::Ticket::Article::CommunicateTwitter::BackgroundJob
     # fill article with tweet info
 
     # direct message
-    tweet_id = nil
     if tweet.is_a?(Hash)
       tweet_type = 'DirectMessage'
-      tweet_id = tweet[:event][:id].to_s
+      article.message_id = tweet[:event][:id].to_s
       if tweet[:event] && tweet[:event][:type] == 'message_create'
         #article.from = "@#{tweet.sender.screen_name}"
         #article.to = "@#{tweet.recipient.screen_name}"
 
         article.preferences['twitter'] = {
           recipient_id: tweet[:event][:message_create][:target][:recipient_id],
-          sender_id: tweet[:event][:message_create][:sender_id],
+          sender_id:    tweet[:event][:message_create][:sender_id],
         }
+
+        article.preferences['links'] = [
+          {
+            url:    "https://twitter.com/messages/#{article.preferences[:twitter][:recipient_id]}-#{article.preferences[:twitter][:sender_id]}",
+            target: '_blank',
+            name:   'on Twitter',
+          },
+        ]
       end
 
     # regular tweet
     elsif tweet.class == Twitter::Tweet
       tweet_type = 'Tweet'
-      tweet_id = tweet.id.to_s
       article.from = "@#{tweet.user.screen_name}"
       if tweet.user_mentions
         to = ''
@@ -82,19 +88,28 @@ class Observer::Ticket::Article::CommunicateTwitter::BackgroundJob
         end
         article.to = to
         article.preferences['twitter'] = TwitterSync.preferences_cleanup(
-          mention_ids: mention_ids,
-          geo: tweet.geo,
-          retweeted: tweet.retweeted?,
-          possibly_sensitive: tweet.possibly_sensitive?,
+          mention_ids:         mention_ids,
+          geo:                 tweet.geo,
+          retweeted:           tweet.retweeted?,
+          possibly_sensitive:  tweet.possibly_sensitive?,
           in_reply_to_user_id: tweet.in_reply_to_user_id,
-          place: tweet.place,
-          retweet_count: tweet.retweet_count,
-          source: tweet.source,
-          favorited: tweet.favorited?,
-          truncated: tweet.truncated?,
-          created_at: tweet.created_at,
+          place:               tweet.place,
+          retweet_count:       tweet.retweet_count,
+          source:              tweet.source,
+          favorited:           tweet.favorited?,
+          truncated:           tweet.truncated?,
+          created_at:          tweet.created_at,
         )
       end
+
+      article.message_id = tweet.id.to_s
+      article.preferences['links'] = [
+        {
+          url:    TwitterSync::STATUS_URL_TEMPLATE % tweet.id,
+          target: '_blank',
+          name:   'on Twitter',
+        },
+      ]
     else
       raise "Unknown tweet type '#{tweet.class}'"
     end
@@ -103,15 +118,6 @@ class Observer::Ticket::Article::CommunicateTwitter::BackgroundJob
     article.preferences['delivery_status_message'] = nil
     article.preferences['delivery_status'] = 'success'
     article.preferences['delivery_status_date'] = Time.zone.now
-
-    article.message_id = tweet_id
-    article.preferences['links'] = [
-      {
-        url: "https://twitter.com/statuses/#{tweet_id}",
-        target: '_blank',
-        name: 'on Twitter',
-      },
-    ]
 
     article.save!
 
@@ -129,15 +135,15 @@ class Observer::Ticket::Article::CommunicateTwitter::BackgroundJob
 
     if local_record.preferences['delivery_retry'] > 3
       Ticket::Article.create(
-        ticket_id: local_record.ticket_id,
-        content_type: 'text/plain',
-        body: "Unable to send tweet: #{message}",
-        internal: true,
-        sender: Ticket::Article::Sender.find_by(name: 'System'),
-        type: Ticket::Article::Type.find_by(name: 'note'),
-        preferences: {
+        ticket_id:     local_record.ticket_id,
+        content_type:  'text/plain',
+        body:          "Unable to send tweet: #{message}",
+        internal:      true,
+        sender:        Ticket::Article::Sender.find_by(name: 'System'),
+        type:          Ticket::Article::Type.find_by(name: 'note'),
+        preferences:   {
           delivery_article_id_related: local_record.id,
-          delivery_message: true,
+          delivery_message:            true,
         },
         updated_by_id: 1,
         created_by_id: 1,

@@ -199,7 +199,7 @@ class App.TicketCreate extends App.Controller
 
     if _.isEmpty(params.ticket_id) && _.isEmpty(params.article_id)
       if !_.isEmpty(params.customer_id)
-        @renderQueue(options: { customer_id: params.customer_id })
+        @renderQueue(options: params)
         return
       @renderQueue()
       return
@@ -324,11 +324,12 @@ class App.TicketCreate extends App.Controller
       events:
         'change [name=customer_id]': @localUserInfo
       handlersConfig: handlers
-      filter:         @formMeta.filter
-      formMeta:       @formMeta
-      params:         params
-      noFieldset:     true
-      taskKey:        @taskKey
+      filter:                  @formMeta.filter
+      formMeta:                @formMeta
+      params:                  params
+      noFieldset:              true
+      taskKey:                 @taskKey
+      rejectNonExistentValues: true
     )
     new App.ControllerForm(
       el:             @$('.ticket-form-bottom')
@@ -343,6 +344,10 @@ class App.TicketCreate extends App.Controller
       params:         params
       taskKey:        @taskKey
     )
+
+    # convert remote images into data urls
+    App.Utils.htmlImage2DataUrlAsyncInline(@$('[contenteditable=true]'))
+
     App.Ticket.configure_attributes.pop()
 
     # set type selector
@@ -357,6 +362,7 @@ class App.TicketCreate extends App.Controller
       data:
         config: App.Config.all()
         user: App.Session.get()
+      taskKey: @taskKey
     )
 
     $('#tags').tokenfield()

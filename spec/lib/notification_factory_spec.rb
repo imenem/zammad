@@ -8,7 +8,7 @@ RSpec.describe NotificationFactory do
     let(:rendered_locale) { 'en' }
     let(:parsed_template) { { subject: template_lines.first, body: template_lines.drop(1).join } }
     let(:template_lines) { File.readlines(template_path) }
-    let(:template_path) { Rails.root.join('app', 'views', 'mailer', 'signup', "#{rendered_locale}.html.erb") }
+    let(:template_path) { Rails.root.join("app/views/mailer/signup/#{rendered_locale}.html.erb") }
 
     let(:read_params) do
       { type: 'mailer', template: 'signup', locale: 'en', format: 'html' }
@@ -25,14 +25,14 @@ RSpec.describe NotificationFactory do
         let(:template_path) { Rails.root.to_s + "/app/views/mailer/signup/#{rendered_locale}.html.erb.custom" }
 
         it 'uses that file' do
-          begin
-            File.write(template_path, "Subject\nBody\nbody\n")
 
-            expect(described_class.template_read(read_params))
-              .to eq({ subject: "Subject\n", body: "Body\nbody\n" })
-          ensure
-            File.delete(template_path)
-          end
+          File.write(template_path, "Subject\nBody\nbody\n")
+
+          expect(described_class.template_read(read_params))
+            .to eq({ subject: "Subject\n", body: "Body\nbody\n" })
+        ensure
+          File.delete(template_path)
+
         end
       end
 
@@ -47,6 +47,7 @@ RSpec.describe NotificationFactory do
 
       context 'if no locale given in arguments, but default locale is set' do
         before { Setting.set('locale_default', 'de-de') }
+
         let(:rendered_locale) { 'de' }
 
         it 'tries template for default locale' do
@@ -56,6 +57,7 @@ RSpec.describe NotificationFactory do
 
         context 'and no such template exists' do
           before { Setting.set('locale_default', 'xx') }
+
           let(:rendered_locale) { 'en' }
 
           it 'falls back to en template' do
@@ -87,7 +89,7 @@ RSpec.describe NotificationFactory do
 
   describe '::application_template_read' do
     let(:read_params) { { type: 'mailer', format: 'html' } }
-    let(:template_path) { Rails.root.join('app', 'views', 'mailer', 'application.html.erb') }
+    let(:template_path) { Rails.root.join('app/views/mailer/application.html.erb') }
 
     it 'returns template file content as string' do
       expect(described_class.application_template_read(read_params))

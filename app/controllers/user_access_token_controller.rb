@@ -27,7 +27,7 @@ curl http://localhost/api/v1/user_access_token -v -u #{login}:#{password}
 =end
 
   def index
-    tokens = Token.where(action: 'api', persistent: true, user_id: current_user.id).order('updated_at DESC, label ASC')
+    tokens = Token.where(action: 'api', persistent: true, user_id: current_user.id).order(updated_at: :desc, label: :asc)
     token_list = []
     tokens.each do |token|
       attributes = token.attributes
@@ -38,7 +38,7 @@ curl http://localhost/api/v1/user_access_token -v -u #{login}:#{password}
     local_permissions = current_user.permissions
     local_permissions_new = {}
     local_permissions.each_key do |key|
-      keys = Object.const_get('Permission').with_parents(key)
+      keys = ::Permission.with_parents(key)
       keys.each do |local_key|
         next if local_permissions_new.key?([local_key])
 
@@ -61,7 +61,7 @@ curl http://localhost/api/v1/user_access_token -v -u #{login}:#{password}
     end
 
     render json: {
-      tokens: token_list,
+      tokens:      token_list,
       permissions: permissions,
     }, status: :ok
   end

@@ -3,6 +3,7 @@
 class Permission < ApplicationModel
   include ChecksClientNotification
   include ChecksLatestChangeObserved
+  include HasCollectionUpdate
 
   has_and_belongs_to_many :roles
   validates               :name, presence: true
@@ -29,6 +30,10 @@ returns
       names.push part
     end
     names
+  end
+
+  def to_s
+    name
   end
 
 end

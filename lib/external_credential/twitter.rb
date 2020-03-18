@@ -50,22 +50,21 @@ class ExternalCredential::Twitter
 
     access_token = request_token.get_access_token(oauth_verifier: params[:oauth_verifier])
     client = TwitterSync.new(
-      consumer_key: external_credential.credentials[:consumer_key],
-      consumer_secret: external_credential.credentials[:consumer_secret],
-      access_token: access_token.token,
+      consumer_key:        external_credential.credentials[:consumer_key],
+      consumer_secret:     external_credential.credentials[:consumer_secret],
+      access_token:        access_token.token,
       access_token_secret: access_token.secret,
     )
     client_user = client.who_am_i
-    client_user_id = client_user.id
 
     # check if account already exists
     Channel.where(area: 'Twitter::Account').each do |channel|
       next if !channel.options
       next if !channel.options['user']
       next if !channel.options['user']['id']
-      next if channel.options['user']['id'] != client_user_id && channel.options['user']['screen_name'] != client_user.screen_name
+      next if channel.options['user']['id'].to_s != client_user.id.to_s && channel.options['user']['screen_name'] != client_user.screen_name
 
-      channel.options['user']['id'] = client_user_id
+      channel.options['user']['id'] = client_user.id.to_s
       channel.options['user']['screen_name'] = client_user.screen_name
       channel.options['user']['name'] = client_user.name
 
@@ -86,28 +85,28 @@ class ExternalCredential::Twitter
 
     # create channel
     channel = Channel.create!(
-      area: 'Twitter::Account',
-      options: {
+      area:          'Twitter::Account',
+      options:       {
         adapter: 'twitter',
-        user: {
-          id: client_user_id,
+        user:    {
+          id:          client_user.id.to_s,
           screen_name: client_user.screen_name,
-          name: client_user.name,
+          name:        client_user.name,
         },
-        auth: {
+        auth:    {
           external_credential_id: external_credential.id,
           oauth_token:            access_token.token,
           oauth_token_secret:     access_token.secret,
         },
-        sync: {
-          limit: 20,
-          search: [],
-          mentions: {},
+        sync:    {
+          limit:           20,
+          search:          [],
+          mentions:        {},
           direct_messages: {},
-          track_retweets: false
+          track_retweets:  false
         }
       },
-      active: true,
+      active:        true,
       created_by_id: 1,
       updated_by_id: 1,
     )
@@ -138,24 +137,24 @@ class ExternalCredential::Twitter
     env_name = params[:env]
 
     client = TwitterSync.new(
-      consumer_key: params[:consumer_key],
-      consumer_secret: params[:consumer_secret],
-      access_token: params[:oauth_token],
+      consumer_key:        params[:consumer_key],
+      consumer_secret:     params[:consumer_secret],
+      access_token:        params[:oauth_token],
       access_token_secret: params[:oauth_token_secret],
     )
 
     # needed for verify callback
     Cache.write('external_credential_twitter', {
-                  consumer_key: params[:consumer_key],
-                  consumer_secret: params[:consumer_secret],
-                  access_token: params[:oauth_token],
+                  consumer_key:        params[:consumer_key],
+                  consumer_secret:     params[:consumer_secret],
+                  access_token:        params[:oauth_token],
                   access_token_secret: params[:oauth_token_secret],
                 })
 
     # verify if webhook is already registered
     begin
       webhooks = client.webhooks_by_env_name(env_name)
-    rescue => e
+    rescue
       begin
         webhooks = client.webhooks
         raise "Unable to get list of webooks. You use the wrong 'Dev environment label', only #{webhooks.inspect} available."
@@ -185,7 +184,7 @@ class ExternalCredential::Twitter
 
     # delete already registered webhooks
     webhooks.each do |webhook|
-      client.webhook_delete(webhook[:id])
+      client.webhook_delete(webhook[:id], env_name)
     end
 
     # register new webhook

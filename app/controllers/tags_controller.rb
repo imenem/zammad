@@ -5,11 +5,11 @@ class TagsController < ApplicationController
 
   # GET /api/v1/tag_search?term=abc
   def search
-    list = Tag::Item.where('name_downcase LIKE ?', "#{params[:term].strip.downcase}%").order('name ASC').limit(params[:limit] || 10)
+    list = Tag::Item.where('name_downcase LIKE ?', "%#{params[:term].strip.downcase}%").order(name: :asc).limit(params[:limit] || 10)
     results = []
     list.each do |item|
       result = {
-        id: item.id,
+        id:    item.id,
         value: item.name,
       }
       results.push result
@@ -21,7 +21,7 @@ class TagsController < ApplicationController
   def list
     list = Tag.tag_list(
       object: params[:object],
-      o_id: params[:o_id],
+      o_id:   params[:o_id],
     )
 
     # return result
@@ -34,8 +34,8 @@ class TagsController < ApplicationController
   def add
     success = Tag.tag_add(
       object: params[:object],
-      o_id: params[:o_id],
-      item: params[:item],
+      o_id:   params[:o_id],
+      item:   params[:item],
     )
     if success
       render json: success, status: :created
@@ -48,8 +48,8 @@ class TagsController < ApplicationController
   def remove
     success = Tag.tag_remove(
       object: params[:object],
-      o_id: params[:o_id],
-      item: params[:item],
+      o_id:   params[:o_id],
+      item:   params[:item],
     )
     if success
       render json: success, status: :created
@@ -61,12 +61,12 @@ class TagsController < ApplicationController
   # GET /api/v1/tag_list
   def admin_list
     permission_check('admin.tag')
-    list = Tag::Item.order('name ASC').limit(params[:limit] || 1000)
+    list = Tag::Item.order(name: :asc).limit(params[:limit] || 1000)
     results = []
     list.each do |item|
       result = {
-        id: item.id,
-        name: item.name,
+        id:    item.id,
+        name:  item.name,
         count: Tag.where(tag_item_id: item.id).count
       }
       results.push result
@@ -85,7 +85,7 @@ class TagsController < ApplicationController
   def admin_rename
     permission_check('admin.tag')
     Tag::Item.rename(
-      id: params[:id],
+      id:   params[:id],
       name: params[:name],
     )
     render json: {}

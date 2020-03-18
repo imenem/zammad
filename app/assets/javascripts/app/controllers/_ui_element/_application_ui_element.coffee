@@ -119,7 +119,7 @@ class App.UiElement.ApplicationUiElement
               list.push record
 
         # check if current value need to be added
-        if params[ attribute.name ]
+        if params[ attribute.name ] && !attribute.rejectNonExistentValues
           hit = false
           for value in list
             if value['id'].toString() is params[ attribute.name ].toString()
@@ -163,11 +163,20 @@ class App.UiElement.ApplicationUiElement
         if attribute.translate
           nameNew = App.i18n.translateInline(nameNew)
 
-        attribute.options.push
+        row =
           value: item.id,
           note:  item.note,
           name:  nameNew,
           title: if item.email then item.email else nameNew
+
+        if item.graphic
+          row.graphic = item.graphic
+
+          # only used for graphics
+          if item.aspect_ratio
+            row.aspect_ratio = item.aspect_ratio
+
+        attribute.options.push row
 
     attribute.sortBy = null
 

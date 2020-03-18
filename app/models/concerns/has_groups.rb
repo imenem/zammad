@@ -38,7 +38,7 @@ module HasGroups
       # @return [ActiveRecord::AssociationRelation<[<Group]>] List of Groups with :through attributes
       def access(*access)
         table_name = proxy_association.owner.class.group_through.table_name
-        query      = select("groups.*, #{table_name}.*")
+        query      = select("#{ActiveRecord::Base.connection.quote_table_name('groups')}.*, #{ActiveRecord::Base.connection.quote_table_name(table_name)}.*")
         return query if access.blank?
 
         access.push('full') if !access.include?('full')
@@ -72,11 +72,11 @@ module HasGroups
     access   = self.class.ensure_group_access_list_parameter(access)
 
     # check direct access
-    return true if group_through.klass.includes(:group).exists?(
+    return true if group_through.klass.eager_load(:group).exists?(
       group_through.foreign_key => id,
       group_id: group_id,
-      access:   access,
-      groups:   {
+      access: access,
+      groups: {
         active: true
       }
     )
@@ -108,13 +108,13 @@ module HasGroups
     klass       = group_through.klass
 
     # check direct access
-    ids   = klass.includes(:group).where(foreign_key => id, access: access, groups: { active: true }).pluck(:group_id)
+    ids   = klass.eager_load(:group).where(foreign_key => id, access: access, groups: { active: true }).pluck(:group_id)
     ids ||= []
 
     # check indirect access through roles if possible
     return ids if !respond_to?(:role_ids)
 
-    role_group_ids = RoleGroup.includes(:group).where(role_id: role_ids, access: access, groups: { active: true }).pluck(:group_id)
+    role_group_ids = RoleGroup.eager_load(:group).where(role_id: role_ids, access: access, groups: { active: true }).pluck(:group_id)
 
     # combines and removes duplicates
     # and returns them in one statement
@@ -248,8 +248,9 @@ module HasGroups
     return if group_access_buffer.nil?
 
     yield
-    group_access_buffer = nil
+    self.group_access_buffer = nil
     cache_delete
+    push_ticket_create_screen_background_job
   end
 
   def process_group_access_buffer

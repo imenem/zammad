@@ -25,8 +25,7 @@ returns
       attr.transform_keys!(&:to_sym).slice!(*lookup_keys)
       raise ArgumentError, "Valid lookup attribute required (#{lookup_keys.join(', ')})" if attr.empty?
 
-      record   = cache_get(attr.values.first)
-      record ||= find_and_save_to_cache_by(attr)
+      cache_get(attr.values.first) || find_and_save_to_cache_by(attr)
     end
 
 =begin
@@ -37,7 +36,7 @@ return possible lookup keys for model
 
 returns
 
-  [:id, :name] # or fror users [:id, :login, :email]
+  [:id, :name] # or, for users: [:id, :login, :email]
 
 =end
 
@@ -48,11 +47,12 @@ returns
     private
 
     def find_and_save_to_cache_by(attr)
-      if !Rails.application.config.db_case_sensitive && string_key?(attr.keys.first)
-        where(attr).find { |r| r[attr.keys.first] == attr.values.first }
-      else
-        find_by(attr)
-      end.tap { |r| cache_set(attr.values.first, r) }
+      record = find_by(attr)
+      return nil if string_key?(attr.keys.first) && (record&.send(attr.keys.first) != attr.values.first)  # enforce case-sensitivity on MySQL
+      return record if ActiveRecord::Base.connection.transaction_open?  # rollbacks can invalidate cache entries
+
+      cache_set(attr.values.first, record)
+      record
     end
 
     def string_key?(key)

@@ -9,7 +9,7 @@ module Channel::Filter::FollowUpCheck
     # get ticket# from subject
     ticket = Ticket::Number.check(mail[:subject])
     if ticket
-      Rails.logger.debug { "Follow up for '##{ticket.number}' in subject." }
+      Rails.logger.debug { "Follow-up for '##{ticket.number}' in subject." }
       mail['x-zammad-ticket-id'.to_sym] = ticket.id
       return true
     end
@@ -20,7 +20,7 @@ module Channel::Filter::FollowUpCheck
     if setting.include?('body')
       ticket = Ticket::Number.check(mail[:body].html2text)
       if ticket
-        Rails.logger.debug { "Follow up for '##{ticket.number}' in body." }
+        Rails.logger.debug { "Follow-up for '##{ticket.number}' in body." }
         mail['x-zammad-ticket-id'.to_sym] = ticket.id
         return true
       end
@@ -29,12 +29,26 @@ module Channel::Filter::FollowUpCheck
     # get ticket# from attachment
     if setting.include?('attachment') && mail[:attachments]
       mail[:attachments].each do |attachment|
-        next if !attachment[:data]
+        next if attachment[:data].blank?
+        next if attachment[:preferences].blank?
+        next if attachment[:preferences]['Mime-Type'].blank?
 
-        ticket = Ticket::Number.check(attachment[:data].html2text)
+        if %r{text/html}i.match?(attachment[:preferences]['Mime-Type'])
+          begin
+            text = attachment[:data].html2text
+            ticket = Ticket::Number.check(text)
+          rescue => e
+            Rails.logger.error e
+          end
+        end
+
+        if %r{text/plain}i.match?(attachment[:preferences]['Mime-Type'])
+          ticket = Ticket::Number.check(attachment[:data])
+        end
+
         next if !ticket
 
-        Rails.logger.debug { "Follow up for '##{ticket.number}' in attachment." }
+        Rails.logger.debug { "Follow-up for '##{ticket.number}' in attachment." }
         mail['x-zammad-ticket-id'.to_sym] = ticket.id
         return true
       end
@@ -61,14 +75,14 @@ module Channel::Filter::FollowUpCheck
           article = Ticket::Article.where(message_id_md5: message_id_md5).order('created_at DESC, id DESC').limit(1).first
           next if !article
 
-          Rails.logger.debug { "Follow up for '##{article.ticket.number}' in references." }
+          Rails.logger.debug { "Follow-up for '##{article.ticket.number}' in references." }
           mail['x-zammad-ticket-id'.to_sym] = article.ticket_id
           return true
         end
       end
     end
 
-    # get ticket# from references current email has same subject as inital article
+    # get ticket# from references current email has same subject as initial article
     if mail[:subject].present?
 
       # get all references 'References' + 'In-Reply-To'
@@ -102,7 +116,7 @@ module Channel::Filter::FollowUpCheck
           # if subject is different, it's no followup
           next if subject_to_check != article_first.subject
 
-          Rails.logger.debug { "Follow up for '##{article.ticket.number}' in references with same subject as inital article." }
+          Rails.logger.debug { "Follow-up for '##{article.ticket.number}' in references with same subject as inital article." }
           mail['x-zammad-ticket-id'.to_sym] = article_first.ticket_id
           return true
         end

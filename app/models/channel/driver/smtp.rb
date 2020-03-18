@@ -55,7 +55,8 @@ class Channel::Driver::Smtp
 
     # set system_bcc of config if defined
     system_bcc = Setting.get('system_bcc')
-    if system_bcc.present? && system_bcc =~ /@/
+    email_address_validation = EmailAddressValidation.new(system_bcc)
+    if system_bcc.present? && email_address_validation.valid_format?
       attr[:bcc] ||= ''
       attr[:bcc] += ', ' if attr[:bcc].present?
       attr[:bcc] += system_bcc
@@ -63,10 +64,10 @@ class Channel::Driver::Smtp
 
     mail = Channel::EmailBuild.build(attr, notification)
     smtp_params = {
-      openssl_verify_mode: options[:openssl_verify_mode],
-      address: options[:host],
-      port: options[:port],
-      domain: options[:domain],
+      openssl_verify_mode:  options[:openssl_verify_mode],
+      address:              options[:host],
+      port:                 options[:port],
+      domain:               options[:domain],
       enable_starttls_auto: options[:enable_starttls_auto],
     }
 

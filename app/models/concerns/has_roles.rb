@@ -2,6 +2,14 @@
 module HasRoles
   extend ActiveSupport::Concern
 
+  included do
+    has_and_belongs_to_many :roles,
+                            before_add:    %i[validate_agent_limit_by_role validate_roles],
+                            after_add:     %i[cache_update check_notifications push_ticket_create_screen_for_role_change],
+                            before_remove: :last_admin_check_by_role,
+                            after_remove:  %i[cache_update push_ticket_create_screen_for_role_change]
+  end
+
   # Checks a given Group( ID) for given access(es) for the instance associated roles.
   #
   # @example Group ID param
@@ -23,17 +31,26 @@ module HasRoles
     group_id = self.class.ensure_group_id_parameter(group_id)
     access   = self.class.ensure_group_access_list_parameter(access)
 
-    RoleGroup.includes(:group, :role).exists?(
+    RoleGroup.eager_load(:group, :role).exists?(
       role_id:  roles.pluck(:id),
       group_id: group_id,
       access:   access,
       groups:   {
         active: true
       },
-      roles: {
+      roles:    {
         active: true
       }
     )
+  end
+
+  def push_ticket_create_screen_for_role_change(role)
+    return if Setting.get('import_mode')
+
+    permission = Permission.lookup(name: 'ticket.agent')
+    return if !role.permissions.exists?(id: permission.id)
+
+    push_ticket_create_screen_background_job
   end
 
   # methods defined here are going to extend the class, not the instance of it
@@ -58,7 +75,7 @@ module HasRoles
       group_id = ensure_group_id_parameter(group_id)
       access   = ensure_group_access_list_parameter(access)
 
-      role_ids   = RoleGroup.includes(:role).where(group_id: group_id, access: access, roles: { active: true }).pluck(:role_id)
+      role_ids   = RoleGroup.eager_load(:role).where(group_id: group_id, access: access, roles: { active: true }).pluck(:role_id)
       join_table = reflect_on_association(:roles).join_table
       joins(:roles).where(active: true, join_table => { role_id: role_ids }).distinct.select(&:groups_access_permission?)
     end

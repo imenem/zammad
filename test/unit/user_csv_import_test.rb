@@ -19,11 +19,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
   test 'empty payload' do
     csv_string = ''
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_nil(result[:records])
@@ -32,11 +32,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
 
     csv_string = "login;firstname;lastname;email;active;\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert(result[:records].blank?)
@@ -47,11 +47,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
   test 'verify required lookup headers' do
     csv_string = "firstname;lastname;active;\nfirstname-simple-import1;lastname-simple-import1;;true\nfirstname-simple-import2;lastname-simple-import2;false\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_equal('failed', result[:result])
@@ -63,11 +63,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
     count = User.count
     csv_string = "login;firstname;lastname;email;active;\nuser-simple-IMPORT1;firstname-simple-import1;lastname-simple-import1;user-simple-IMPORT1@example.com ;true\nuser-simple-import2;firstname-simple-import2;lastname-simple-import2;user-simple-import2@example.com;false\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_equal(2, result[:records].count)
@@ -80,11 +80,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
     assert_nil(User.find_by(login: 'user-simple-import2'))
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(2, result[:records].count)
@@ -109,11 +109,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
     assert_equal(user2.active, false)
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(2, result[:records].count)
@@ -146,11 +146,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
     csv_string = "login;firstname;lastname;email;active;\n ;firstname-simple-import1;lastname-simple-import1;user-simple-IMPORT1@example.com ;true\n   user-simple-import2\t;firstname-simple-import2;lastname-simple-import2;;false\n"
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(2, result[:records].count)
@@ -186,26 +186,26 @@ class UserCsvImportTest < ActiveSupport::TestCase
 
     csv_string = "id;login;firstname;lastname;email;active;\n999999999;user-simple-invalid_id-import1;firstname-simple-import1;lastname-simple-import1;user-simple-invalid_id-import1@example.com;true\n;user-simple-invalid_id-import2;firstname-simple-import2;lastname-simple-import2;user-simple-invalid_id-import2@example.com;false\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_equal(1, result[:errors].count)
     assert_equal('failed', result[:result])
-    assert_equal("Line 1: unknown record with id '999999999' for User.", result[:errors][0])
+    assert_equal("Line 1: unknown User with id '999999999'.", result[:errors][0])
 
     assert_nil(User.find_by(login: 'user-simple-invalid_id-import1'))
     assert_nil(User.find_by(login: 'user-simple-invalid_id-import2'))
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(1, result[:records].count)
@@ -213,41 +213,34 @@ class UserCsvImportTest < ActiveSupport::TestCase
 
     assert_nil(User.find_by(login: 'user-simple-invalid_id-import1'))
 
-    user2 = User.find_by(login: 'user-simple-invalid_id-import2')
-    assert(user2)
-    assert_equal(user2.login, 'user-simple-invalid_id-import2')
-    assert_equal(user2.firstname, 'firstname-simple-import2')
-    assert_equal(user2.lastname, 'lastname-simple-import2')
-    assert_equal(user2.email, 'user-simple-invalid_id-import2@example.com')
-    assert_equal(user2.active, false)
-
-    user2.destroy!
+    # any single failure will cause the entire import to be aborted
+    assert_nil(User.find_by(login: 'user-simple-invalid_id-import2'))
   end
 
   test 'simple import with read only id' do
 
     csv_string = "id;login;firstname;lastname;email;active;\n1;user-simple-readonly_id-import1;firstname-simple-import1;lastname-simple-import1;user-simple-readonly_id-import1@example.com;true\n;user-simple-readonly_id-import2;firstname-simple-import2;lastname-simple-import2;user-simple-readonly_id-import2@example.com;false\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_equal(1, result[:errors].count)
     assert_equal('failed', result[:result])
-    assert_equal("Line 1: unable to update record with id '1' for User.", result[:errors][0])
+    assert_equal("Line 1: unable to update User with id '1'.", result[:errors][0])
 
     assert_nil(User.find_by(login: 'user-simple-readonly_id-import1'))
     assert_nil(User.find_by(login: 'user-simple-readonly_id-import2'))
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(1, result[:records].count)
@@ -255,37 +248,30 @@ class UserCsvImportTest < ActiveSupport::TestCase
 
     assert_nil(User.find_by(login: 'user-simple-readonly_id-import1'))
 
-    user2 = User.find_by(login: 'user-simple-readonly_id-import2')
-    assert(user2)
-    assert_equal(user2.login, 'user-simple-readonly_id-import2')
-    assert_equal(user2.firstname, 'firstname-simple-import2')
-    assert_equal(user2.lastname, 'lastname-simple-import2')
-    assert_equal(user2.email, 'user-simple-readonly_id-import2@example.com')
-    assert_equal(user2.active, false)
-
-    user2.destroy!
+    # any single failure will cause the entire import to be aborted
+    assert_nil(User.find_by(login: 'user-simple-readonly_id-import2'))
   end
 
   test 'simple import with roles' do
     UserInfo.current_user_id = 1
 
     admin = User.create_or_update(
-      login: 'admin1@example.com',
+      login:     'admin1@example.com',
       firstname: 'Admin',
-      lastname: '1',
-      email: 'admin1@example.com',
-      password: 'agentpw',
-      active: true,
-      roles: Role.where(name: 'Admin'),
+      lastname:  '1',
+      email:     'admin1@example.com',
+      password:  'agentpw',
+      active:    true,
+      roles:     Role.where(name: 'Admin'),
     )
 
     csv_string = "login;firstname;lastname;email;roles;\nuser-role-import1;firstname-role-import1;lastname-role-import1;user-role-import1@example.com;Customer;\nuser-role-import2;firstname-role-import2;lastname-role-import2;user-role-import2@example.com;Agent\n;;;;Admin"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
 
     assert_equal(true, result[:try])
@@ -296,11 +282,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
     assert_nil(User.find_by(login: 'user-role-import2'))
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
 
     assert_equal(false, result[:try])
@@ -331,14 +317,14 @@ class UserCsvImportTest < ActiveSupport::TestCase
 
     csv_string = "login;firstname;lastname;email\nuser-simple-import-fixed1;firstname-simple-import-fixed1;lastname-simple-import-fixed1;user-simple-import-fixed1@example.com\nuser-simple-import-fixed2;firstname-simple-import-fixed2;lastname-simple-import-fixed2;user-simple-import-fixed2@example.com\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
       fixed_params: {
         note: 'some note',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_equal(2, result[:records].count)
@@ -348,14 +334,14 @@ class UserCsvImportTest < ActiveSupport::TestCase
     assert_nil(User.find_by(login: 'user-simple-import-fixed2'))
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
       fixed_params: {
         note: 'some note',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(2, result[:records].count)
@@ -385,48 +371,45 @@ class UserCsvImportTest < ActiveSupport::TestCase
 
     csv_string = "login;firstname;lastname;email\nuser-duplicate-import1;firstname-duplicate-import1;firstname-duplicate-import1;user-duplicate-import1@example.com\nuser-duplicate-import2;firstname-duplicate-import2;firstname-duplicate-import2;user-duplicate-import2@example.com\nuser-duplicate-import2;firstname-duplicate-import3;firstname-duplicate-import3;user-duplicate-import3@example.com"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
-    assert_equal(3, result[:records].count)
-    assert_equal('success', result[:result])
+    assert_equal(2, result[:records].count)
+    assert_equal('failed', result[:result])
 
     assert_nil(User.find_by(login: 'user-duplicate-import1'))
     assert_nil(User.find_by(login: 'user-duplicate-import2'))
     assert_nil(User.find_by(login: 'user-duplicate-import3'))
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
-    assert_equal(3, result[:records].count)
-    assert_equal('success', result[:result])
+    assert_equal(2, result[:records].count)
+    assert_equal('failed', result[:result])
 
-    assert(User.find_by(login: 'user-duplicate-import1'))
-    assert(User.find_by(login: 'user-duplicate-import2'))
+    assert_nil(User.find_by(login: 'user-duplicate-import1'))
+    assert_nil(User.find_by(login: 'user-duplicate-import2'))
     assert_nil(User.find_by(login: 'user-duplicate-import3'))
-
-    User.find_by(login: 'user-duplicate-import1').destroy!
-    User.find_by(login: 'user-duplicate-import2').destroy!
   end
 
   test 'invalid attributes' do
 
     csv_string = "login;firstname2;lastname;email\nuser-invalid-import1;firstname-invalid-import1;firstname-invalid-import1;user-invalid-import1@example.com\nuser-invalid-import2;firstname-invalid-import2;firstname-invalid-import2;user-invalid-import2@example.com\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_equal(2, result[:errors].count)
@@ -438,11 +421,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
     assert_nil(User.find_by(login: 'user-invalid-import2'))
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(2, result[:errors].count)
@@ -458,11 +441,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
 
     csv_string = "login;firstname;lastname;email;organization\nuser-reference-import1;firstname-reference-import1;firstname-reference-import1;user-reference-import1@example.com;organization-reference-import1\nuser-reference-import2;firstname-reference-import2;firstname-reference-import2;user-reference-import2@example.com;organization-reference-import2\nuser-reference-import3;firstname-reference-import3;firstname-reference-import3;user-reference-import3@example.com;Zammad Foundation\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_equal(2, result[:errors].count)
@@ -474,11 +457,11 @@ class UserCsvImportTest < ActiveSupport::TestCase
     assert_equal("Line 2: No lookup value found for 'organization': \"organization-reference-import2\"", result[:errors][1])
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(2, result[:errors].count)
@@ -486,7 +469,7 @@ class UserCsvImportTest < ActiveSupport::TestCase
 
     assert_nil(User.find_by(login: 'user-reference-import1'))
     assert_nil(User.find_by(login: 'user-reference-import2'))
-    assert(User.find_by(login: 'user-reference-import3'))
+    assert_nil(User.find_by(login: 'user-reference-import3'))
     assert_equal("Line 1: No lookup value found for 'organization': \"organization-reference-import1\"", result[:errors][0])
     assert_equal("Line 2: No lookup value found for 'organization': \"organization-reference-import2\"", result[:errors][1])
 
@@ -495,25 +478,27 @@ class UserCsvImportTest < ActiveSupport::TestCase
     orgaization2 = Organization.create_if_not_exists(name: 'organization-reference-import2')
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
+      try:          true,
     )
     assert_equal(true, result[:try])
     assert_equal(0, result[:errors].count)
     assert_equal('success', result[:result])
     assert_nil(User.find_by(login: 'user-reference-import1'))
     assert_nil(User.find_by(login: 'user-reference-import2'))
-    assert(User.find_by(login: 'user-reference-import3'))
+
+    # any single failure will cause the entire import to be aborted
+    assert_nil(User.find_by(login: 'user-reference-import3'))
 
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: false,
+      try:          false,
     )
     assert_equal(false, result[:try])
     assert_equal(0, result[:errors].count)
@@ -534,12 +519,12 @@ class UserCsvImportTest < ActiveSupport::TestCase
   test 'simple import with delete' do
     csv_string = "login;firstname;lastname;email\nuser-simple-import-fixed1;firstname-simple-import-fixed1;lastname-simple-import-fixed1;user-simple-import-fixed1@example.com\nuser-simple-import-fixed2;firstname-simple-import-fixed2;lastname-simple-import-fixed2;user-simple-import-fixed2@example.com\n"
     result = User.csv_import(
-      string: csv_string,
+      string:       csv_string,
       parse_params: {
         col_sep: ';',
       },
-      try: true,
-      delete: true,
+      try:          true,
+      delete:       true,
     )
 
     assert_equal(true, result[:try])

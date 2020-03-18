@@ -49,8 +49,9 @@ class Index extends App.ControllerSubContent
   delete: (e) =>
     e.preventDefault()
 
+    id = $(e.currentTarget).data('token-id')
+
     callback = =>
-      id = $(e.target).closest('a').data('token-id')
       @ajax(
         id:          'user_access_token_delete'
         type:        'DELETE'
@@ -122,7 +123,7 @@ class Create extends App.ControllerModal
     ui = @
     new App.ControllerModal(
       head: 'Your New Personal Access Token'
-      buttonSubmit: 'OK, I\'ve copied my token'
+      buttonSubmit: "OK, I've copied my token"
       content: ->
         App.view('profile/token_access_created')(
           name: ui.newToken.name

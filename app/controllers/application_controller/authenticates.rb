@@ -3,15 +3,11 @@ module ApplicationController::Authenticates
 
   private
 
-  def response_access_deny
-    raise Exceptions::NotAuthorized
-  end
-
   def permission_check(key)
     if @_token_auth
       user = Token.check(
-        action: 'api',
-        name: @_token_auth,
+        action:     'api',
+        name:       @_token_auth,
         permission: key,
       )
       return false if user
@@ -54,15 +50,6 @@ module ApplicationController::Authenticates
       return authentication_check_prerequesits(user, 'session', auth_param) if user
     end
 
-    # check sso based authentication
-    sso_user = User.sso(params)
-    if sso_user
-      if authentication_check_prerequesits(sso_user, 'session', auth_param)
-        session[:persistent] = true
-        return sso_user
-      end
-    end
-
     # check http basic based authentication
     authenticate_with_http_basic do |username, password|
       request.session_options[:skip] = true # do not send a session cookie
@@ -84,15 +71,15 @@ module ApplicationController::Authenticates
       end
 
       user = Token.check(
-        action: 'api',
-        name: token_string,
+        action:        'api',
+        name:          token_string,
         inactive_user: true,
       )
       if user && auth_param[:permission]
         user = Token.check(
-          action: 'api',
-          name: token_string,
-          permission: auth_param[:permission],
+          action:        'api',
+          name:          token_string,
+          permission:    auth_param[:permission],
           inactive_user: true,
         )
         raise Exceptions::NotAuthorized, 'Not authorized (token)!' if !user
@@ -121,9 +108,7 @@ module ApplicationController::Authenticates
       logger.debug { "oauth2 token auth check '#{token}'" }
       access_token = Doorkeeper::AccessToken.by_token(token)
 
-      if !access_token
-        raise Exceptions::NotAuthorized, 'Invalid token!'
-      end
+      raise Exceptions::NotAuthorized, 'Invalid token!' if !access_token
 
       # check expire
       if access_token.expires_in && (access_token.created_at + access_token.expires_in) < Time.zone.now
@@ -141,23 +126,37 @@ module ApplicationController::Authenticates
     false
   end
 
+  def authenticate_with_password
+    user = User.authenticate(params[:username], params[:password])
+    raise Exceptions::NotAuthorized, 'Wrong Username or Password combination.' if !user
+
+    session.delete(:switched_from_user_id)
+    authentication_check_prerequesits(user, 'session', {})
+  end
+
+  def authenticate_with_sso
+    user = begin
+              login = request.env['REMOTE_USER'] ||
+                      request.env['HTTP_REMOTE_USER'] ||
+                      request.headers['X-Forwarded-User']
+
+              User.lookup(login: login&.downcase)
+            end
+
+    raise Exceptions::NotAuthorized, 'Missing SSO ENV REMOTE_USER' if !user
+
+    session.delete(:switched_from_user_id)
+    authentication_check_prerequesits(user, 'SSO', {})
+  end
+
   def authentication_check_prerequesits(user, auth_type, auth_param)
-    if check_maintenance_only(user)
-      raise Exceptions::NotAuthorized, 'Maintenance mode enabled!'
-    end
-
-    if user.active == false
-      raise Exceptions::NotAuthorized, 'User is inactive!'
-    end
-
-    # check scopes / permission check
-    if auth_param[:permission] && !user.permissions?(auth_param[:permission])
-      raise Exceptions::NotAuthorized, 'Not authorized (user)!'
-    end
+    raise Exceptions::NotAuthorized, 'Maintenance mode enabled!' if in_maintenance_mode?(user)
+    raise Exceptions::NotAuthorized, 'User is inactive!' if !user.active
+    raise Exceptions::NotAuthorized, 'Not authorized (user)!' if auth_param[:permission] && !user.permissions?(auth_param[:permission])
 
     current_user_set(user, auth_type)
     user_device_log(user, auth_type)
     logger.debug { "#{auth_type} for '#{user.login}'" }
-    true
+    user
   end
 end

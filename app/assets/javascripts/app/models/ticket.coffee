@@ -11,10 +11,10 @@ class App.Ticket extends App.Model
       { name: 'owner_id',                 display: 'Owner',        tag: 'select',   multiple: false, limit: 100, null: true, relation: 'User', width: '12%', edit: true },
       { name: 'state_id',                 display: 'State',        tag: 'select',   multiple: false, null: false, relation: 'TicketState', default: 'new', width: '12%', edit: true, customer: true },
       { name: 'pending_time',             display: 'Pending till', tag: 'datetime', null: true, width: '130px' },
-      { name: 'priority_id',              display: 'Priority',     tag: 'select',   multiple: false, null: false, relation: 'TicketPriority', default: '2 normal', width: '12%', edit: true, customer: true },
+      { name: 'priority_id',              display: 'Priority',     tag: 'select',   multiple: false, null: false, relation: 'TicketPriority', default: '2 normal', width: '54px', edit: true, customer: true },
       { name: 'article_count',            display: 'Article#',     readonly: 1, width: '12%' },
       { name: 'time_unit',                display: 'Accounted Time',          readonly: 1, width: '12%' },
-      { name: 'escalation_at',            display: 'Escalation',              tag: 'datetime', null: true, readonly: 1, width: '110px', class: 'escalation' },
+      { name: 'escalation_at',            display: 'Escalation at',           tag: 'datetime', null: true, readonly: 1, width: '110px', class: 'escalation' },
       { name: 'last_contact_at',          display: 'Last contact',            tag: 'datetime', null: true, readonly: 1, width: '110px' },
       { name: 'last_contact_agent_at',    display: 'Last contact (agent)',    tag: 'datetime', null: true, readonly: 1, width: '110px' },
       { name: 'last_contact_customer_at', display: 'Last contact (customer)', tag: 'datetime', null: true, readonly: 1, width: '110px' },
@@ -29,9 +29,25 @@ class App.Ticket extends App.Model
   uiUrl: ->
     "#ticket/zoom/#{@id}"
 
+  priorityIcon: ->
+    priority = App.TicketPriority.findNative(@priority_id)
+    return '' if !priority
+    return '' if !priority.ui_icon
+    return '' if !priority.ui_color
+    App.Utils.icon(priority.ui_icon, "u-#{priority.ui_color}-color")
+
+  priorityClass: ->
+    priority = App.TicketPriority.findNative(@priority_id)
+    return '' if !priority
+    return '' if !priority.ui_color
+    "item--#{priority.ui_color}"
+
+  rowClass: ->
+    @priorityClass()
+
   getState: ->
-    type = App.TicketState.find(@state_id)
-    stateType = App.TicketStateType.find(type.state_type_id)
+    type = App.TicketState.findNative(@state_id)
+    stateType = App.TicketStateType.findNative(type.state_type_id)
     state = 'closed'
     if stateType.name is 'new' || stateType.name is 'open'
       state = 'open'
@@ -56,8 +72,8 @@ class App.Ticket extends App.Model
     @getState()
 
   iconTitle: ->
-    type = App.TicketState.find(@state_id)
-    stateType = App.TicketStateType.find(type.state_type_id)
+    type = App.TicketState.findNative(@state_id)
+    stateType = App.TicketStateType.findNative(type.state_type_id)
     if stateType.name is 'pending reminder' && @pending_time && new Date( Date.parse(@pending_time) ) < new Date
       return "#{App.i18n.translateInline(type.displayName())} - #{App.i18n.translateInline('reached')}"
     if @escalation_at && new Date( Date.parse(@escalation_at) ) < new Date
@@ -98,6 +114,8 @@ class App.Ticket extends App.Model
   @macro: (params) ->
     for key, content of params.macro
       attributes = key.split('.')
+
+      # apply ticket changes
       if attributes[0] is 'ticket'
 
         # apply tag changes
@@ -125,6 +143,25 @@ class App.Ticket extends App.Model
         # apply direct value changes
         else
           params.ticket[attributes[1]] = content.value
+
+      # apply article changes
+      else if attributes[0] is 'article'
+
+        # preload required attributes
+        if attributes[1]
+          type = App.TicketArticleType.findByAttribute('name', attributes[1])
+          if type
+            params.article.type_id = type.id
+        if !content.sender_id
+          sender = App.TicketArticleSender.findByAttribute('name', 'Agent')
+          if sender
+            content.sender_id = sender.id
+        if !content.from
+          content.from = App.Session.get('login')
+
+        # apply direct value changes
+        for articleKey, aricleValue of content
+          params.article[articleKey] = aricleValue
 
   # check if selector is matching
   @selector: (ticket, selector) ->
@@ -247,10 +284,12 @@ class App.Ticket extends App.Model
     result
 
   editable: (permission = 'change') ->
-    user_id = App.Session.get('id')
-    return true if user_id is @customer_id
-    return false if !App.User.exists(user_id)
-    group_ids = App.User.find(user_id).allGroupIds(permission)
+    user = App.User.current()
+    return false if !user?
+    return true if user.id is @customer_id
+    return true if user.organization_id && @organization_id && user.organization_id is @organization_id
+    return false if !@group_id
+    group_ids = user.allGroupIds(permission)
     for local_group_id in group_ids
       if local_group_id.toString() is @group_id.toString()
         return true

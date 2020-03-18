@@ -6,7 +6,9 @@ require 'tcr/net/ldap'
 
 RSpec.describe Ldap::User do
 
-  context '.uid_attribute' do
+  let(:mocked_ldap) { double() }
+
+  describe '.uid_attribute' do
 
     it 'responds to .uid_attribute' do
       expect(described_class).to respond_to(:uid_attribute)
@@ -32,13 +34,12 @@ RSpec.describe Ldap::User do
   # required as 'let' to perform test based
   # expectations and reuse it in 'let' instance
   # as additional parameter
-  let(:mocked_ldap) { double() }
 
   context 'initialization config parameters' do
 
     it 'reuses given Ldap instance if given' do
       expect(Ldap).not_to receive(:new)
-      instance = described_class.new(ldap: mocked_ldap)
+      described_class.new(ldap: mocked_ldap)
     end
 
     it 'takes optional filter' do
@@ -67,7 +68,8 @@ RSpec.describe Ldap::User do
 
     it 'creates own Ldap instance if none given' do
       expect(Ldap).to receive(:new)
-      expect(described_class.new())
+
+      described_class.new()
     end
   end
 
@@ -84,7 +86,7 @@ RSpec.describe Ldap::User do
       described_class.new(initialization_config, ldap: mocked_ldap)
     end
 
-    context '#valid?' do
+    describe '#valid?' do
 
       it 'responds to #valid?' do
         expect(instance).to respond_to(:valid?)
@@ -94,7 +96,7 @@ RSpec.describe Ldap::User do
         connection = double()
         expect(mocked_ldap).to receive(:connection).and_return(connection)
 
-        ldap_entry = build(:ldap_entry)
+        build(:ldap_entry)
 
         expect(mocked_ldap).to receive(:base_dn)
         expect(connection).to receive(:bind_as).and_return(true)
@@ -106,7 +108,7 @@ RSpec.describe Ldap::User do
         connection = double()
         expect(mocked_ldap).to receive(:connection).and_return(connection)
 
-        ldap_entry = build(:ldap_entry)
+        build(:ldap_entry)
 
         expect(mocked_ldap).to receive(:base_dn)
         expect(connection).to receive(:bind_as).and_return(false)
@@ -115,7 +117,7 @@ RSpec.describe Ldap::User do
       end
     end
 
-    context '#attributes' do
+    describe '#attributes' do
 
       it 'responds to #attributes' do
         expect(instance).to respond_to(:attributes)
@@ -144,7 +146,7 @@ RSpec.describe Ldap::User do
       end
     end
 
-    context '#filter' do
+    describe '#filter' do
 
       let(:initialization_config) do
         {
@@ -167,7 +169,7 @@ RSpec.describe Ldap::User do
       end
     end
 
-    context '#uid_attribute' do
+    describe '#uid_attribute' do
 
       let(:initialization_config) do
         {

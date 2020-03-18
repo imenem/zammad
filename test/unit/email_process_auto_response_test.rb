@@ -6,48 +6,48 @@ class EmailProcessAutoResponseTest < ActiveSupport::TestCase
 
     roles  = Role.where(name: 'Agent')
     agent1 = User.create!(
-      login: 'ticket-auto-responder-agent1@example.com',
-      firstname: 'AutoReponder',
-      lastname: 'Agent1',
-      email: 'ticket-auto-responder-agent1@example.com',
-      password: 'agentpw',
-      active: true,
-      roles: roles,
-      groups: Group.all,
+      login:         'ticket-auto-responder-agent1@example.com',
+      firstname:     'AutoReponder',
+      lastname:      'Agent1',
+      email:         'ticket-auto-responder-agent1@example.com',
+      password:      'agentpw',
+      active:        true,
+      roles:         roles,
+      groups:        Group.all,
       updated_by_id: 1,
       created_by_id: 1,
     )
 
     Trigger.create!(
-      name: '002 auto reply',
-      condition: {
-        'ticket.action' => {
+      name:                 '002 auto reply',
+      condition:            {
+        'ticket.action'   => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'new').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'new').id.to_s,
         }
       },
-      perform: {
+      perform:              {
         'notification.email' => {
-          'body' => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
+          'body'      => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
           'recipient' => 'ticket_customer',
-          'subject' => 'Thanks for your inquiry (#{ticket.title})!',
+          'subject'   => 'Thanks for your inquiry (#{ticket.title})!',
         },
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
-        'ticket.tags' => {
+        'ticket.tags'        => {
           'operator' => 'add',
-          'value' => 'aa, kk, auto-reply',
+          'value'    => 'aa, kk, auto-reply',
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = "From: me@example.com
@@ -56,7 +56,7 @@ Subject: some new subject
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(2, article_p.ticket.articles.count)
@@ -68,7 +68,7 @@ X-Loop: yes
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
@@ -80,7 +80,7 @@ Precedence: Bulk
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
 
     email_raw_string = "From: me@example.com
@@ -92,7 +92,7 @@ Some Text"
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, _article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
 
     email_raw_string = "From: me@example.com
@@ -103,17 +103,10 @@ X-Auto-Response-Suppress: All
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
-
-    email_raw_string = "From: me@example.com
-To: customer@example.com
-Subject: some new subject
-List-Unsubscribe: <mailto:somebody@example.com>
-
-Some Text"
 
     fqdn = Setting.get('fqdn')
     email_raw_string = "From: me@example.com
@@ -123,7 +116,7 @@ Message-ID: <1234@#{fqdn}>
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
@@ -136,7 +129,7 @@ Message-ID: <1234@not_matching.#{fqdn}>
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(2, article_p.ticket.articles.count)
@@ -186,38 +179,38 @@ Content-Disposition: inline
 
 test"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
 
     # add an agent notification
     Trigger.create!(
-      name: '001 additional agent notification',
-      condition: {
+      name:                 '001 additional agent notification',
+      condition:            {
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'new').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'new').id.to_s,
         }
       },
-      perform: {
+      perform:              {
         'notification.email' => {
-          'body' => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
+          'body'      => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
           'recipient' => 'ticket_agents',
-          'subject' => 'New Ticket add. info (#{ticket.title})!',
+          'subject'   => 'New Ticket add. info (#{ticket.title})!',
         },
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
-        'ticket.tags' => {
+        'ticket.tags'        => {
           'operator' => 'add',
-          'value' => 'aa, kk, agent-notification',
+          'value'    => 'aa, kk, agent-notification',
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = "From: me@example.com
@@ -227,7 +220,7 @@ X-Loop: yes
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -253,7 +246,7 @@ Some Text"
 
     Setting.set('ticket_trigger_recursive', true)
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -285,7 +278,7 @@ Subject: some new subject
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -316,7 +309,7 @@ Some Text"
 
     Setting.set('ticket_trigger_recursive', true)
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     tags = ticket_p.tag_list
@@ -350,48 +343,48 @@ Some Text"
 
     roles  = Role.where(name: 'Agent')
     agent1 = User.create!(
-      login: 'ticket-auto-responder-agent1@example.com',
-      firstname: 'AutoReponder',
-      lastname: 'Agent1',
-      email: 'ticket-auto-responder-agent1@example.com',
-      password: 'agentpw',
-      active: true,
-      roles: roles,
-      groups: Group.all,
+      login:         'ticket-auto-responder-agent1@example.com',
+      firstname:     'AutoReponder',
+      lastname:      'Agent1',
+      email:         'ticket-auto-responder-agent1@example.com',
+      password:      'agentpw',
+      active:        true,
+      roles:         roles,
+      groups:        Group.all,
       updated_by_id: 1,
       created_by_id: 1,
     )
 
     Trigger.create!(
-      name: '001 auto reply',
-      condition: {
-        'ticket.action' => {
+      name:                 '001 auto reply',
+      condition:            {
+        'ticket.action'   => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'new').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'new').id.to_s,
         }
       },
-      perform: {
+      perform:              {
         'notification.email' => {
-          'body' => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
+          'body'      => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
           'recipient' => 'ticket_customer',
-          'subject' => 'Thanks for your inquiry (#{ticket.title})!',
+          'subject'   => 'Thanks for your inquiry (#{ticket.title})!',
         },
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
-        'ticket.tags' => {
+        'ticket.tags'        => {
           'operator' => 'add',
-          'value' => 'aa, kk, auto-reply',
+          'value'    => 'aa, kk, auto-reply',
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = "From: me@example.com
@@ -400,7 +393,7 @@ Subject: some new subject
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(2, article_p.ticket.articles.count)
@@ -412,7 +405,7 @@ X-Loop: yes
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
@@ -424,7 +417,7 @@ Precedence: Bulk
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
 
     email_raw_string = "From: me@example.com
@@ -436,7 +429,7 @@ Some Text"
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, _article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
 
     email_raw_string = "From: me@example.com
@@ -447,17 +440,10 @@ X-Auto-Response-Suppress: All
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
-
-    email_raw_string = "From: me@example.com
-To: customer@example.com
-Subject: some new subject
-List-Unsubscribe: <mailto:somebody@example.com>
-
-Some Text"
 
     fqdn = Setting.get('fqdn')
     email_raw_string = "From: me@example.com
@@ -467,7 +453,7 @@ Message-ID: <1234@#{fqdn}>
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
@@ -480,7 +466,7 @@ Message-ID: <1234@not_matching.#{fqdn}>
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(2, article_p.ticket.articles.count)
@@ -530,38 +516,38 @@ Content-Disposition: inline
 
 test"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    _ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     assert_equal(1, article_p.ticket.articles.count)
 
     # add an agent notification
     Trigger.create!(
-      name: '002 additional agent notification',
-      condition: {
+      name:                 '002 additional agent notification',
+      condition:            {
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'new').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'new').id.to_s,
         }
       },
-      perform: {
+      perform:              {
         'notification.email' => {
-          'body' => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
+          'body'      => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
           'recipient' => 'ticket_agents',
-          'subject' => 'New Ticket add. info (#{ticket.title})!',
+          'subject'   => 'New Ticket add. info (#{ticket.title})!',
         },
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
-        'ticket.tags' => {
+        'ticket.tags'        => {
           'operator' => 'add',
-          'value' => 'aa, kk, agent-notification',
+          'value'    => 'aa, kk, agent-notification',
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = "From: me@example.com
@@ -571,7 +557,7 @@ X-Loop: yes
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -597,7 +583,7 @@ Some Text"
 
     Setting.set('ticket_trigger_recursive', true)
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -629,7 +615,7 @@ Subject: some new subject
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -660,7 +646,7 @@ Some Text"
 
     Setting.set('ticket_trigger_recursive', true)
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     tags = ticket_p.tag_list
@@ -694,80 +680,80 @@ Some Text"
 
     roles  = Role.where(name: 'Agent')
     agent1 = User.create!(
-      login: 'ticket-auto-responder-agent1@example.com',
-      firstname: 'AutoReponder',
-      lastname: 'Agent1',
-      email: 'ticket-auto-responder-agent1@example.com',
-      password: 'agentpw',
-      active: true,
-      roles: roles,
-      groups: Group.all,
+      login:         'ticket-auto-responder-agent1@example.com',
+      firstname:     'AutoReponder',
+      lastname:      'Agent1',
+      email:         'ticket-auto-responder-agent1@example.com',
+      password:      'agentpw',
+      active:        true,
+      roles:         roles,
+      groups:        Group.all,
       updated_by_id: 1,
       created_by_id: 1,
     )
 
     Trigger.create!(
-      name: '001 auto reply',
-      condition: {
-        'ticket.action' => {
+      name:                 '001 auto reply',
+      condition:            {
+        'ticket.action'   => {
           'operator' => 'is',
-          'value' => 'create',
+          'value'    => 'create',
         },
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'open').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'open').id.to_s,
         }
       },
-      perform: {
+      perform:              {
         'notification.email' => {
-          'body' => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
+          'body'      => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
           'recipient' => 'ticket_customer',
-          'subject' => 'Thanks for your inquiry (#{ticket.title})!',
+          'subject'   => 'Thanks for your inquiry (#{ticket.title})!',
         },
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
-        'ticket.tags' => {
+        'ticket.tags'        => {
           'operator' => 'add',
-          'value' => 'aa, kk, auto-reply',
+          'value'    => 'aa, kk, auto-reply',
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     # add an agent notification
     Trigger.create!(
-      name: '002 additional agent notification',
-      condition: {
+      name:                 '002 additional agent notification',
+      condition:            {
         'ticket.state_id' => {
           'operator' => 'is',
-          'value' => Ticket::State.lookup(name: 'new').id.to_s,
+          'value'    => Ticket::State.lookup(name: 'new').id.to_s,
         }
       },
-      perform: {
+      perform:              {
         'notification.email' => {
-          'body' => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
+          'body'      => 'some text<br>#{ticket.customer.lastname}<br>#{ticket.title}',
           'recipient' => 'ticket_agents',
-          'subject' => 'New Ticket add. info (#{ticket.title})!',
+          'subject'   => 'New Ticket add. info (#{ticket.title})!',
         },
         'ticket.priority_id' => {
           'value' => Ticket::Priority.lookup(name: '3 high').id.to_s,
         },
-        'ticket.state_id' => {
+        'ticket.state_id'    => {
           'value' => Ticket::State.lookup(name: 'open').id.to_s,
         },
-        'ticket.tags' => {
+        'ticket.tags'        => {
           'operator' => 'add',
-          'value' => 'aa, kk, agent-notification',
+          'value'    => 'aa, kk, agent-notification',
         },
       },
       disable_notification: true,
-      active: true,
-      created_by_id: 1,
-      updated_by_id: 1,
+      active:               true,
+      created_by_id:        1,
+      updated_by_id:        1,
     )
 
     email_raw_string = "From: me@example.com
@@ -777,7 +763,7 @@ X-Loop: yes
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -803,7 +789,7 @@ Some Text"
 
     Setting.set('ticket_trigger_recursive', true)
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(false, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -835,7 +821,7 @@ Subject: some new subject
 
 Some Text"
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
 
@@ -860,7 +846,7 @@ Some Text"
 
     Setting.set('ticket_trigger_recursive', true)
 
-    ticket_p, article_p, user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
+    ticket_p, article_p, _user_p, mail = Channel::EmailParser.new.process({}, email_raw_string)
     assert_equal(true, mail['x-zammad-send-auto-response'.to_sym])
     Scheduler.worker(true)
     tags = ticket_p.tag_list

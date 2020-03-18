@@ -30,7 +30,7 @@ returns if user has no permissions to search
 
     def search_preferences(_current_user)
       {
-        prio: 3000,
+        prio:                3000,
         direct_search_index: false,
       }
     end
@@ -154,11 +154,11 @@ returns
 
         query_extension['bool']['must'].push access_condition
 
-        items = SearchIndexBackend.search(query, 'Ticket', limit: limit,
+        items = SearchIndexBackend.search(query, 'Ticket', limit:           limit,
                                                            query_extension: query_extension,
-                                                           from: offset,
-                                                           sort_by: sort_by,
-                                                           order_by: order_by)
+                                                           from:            offset,
+                                                           sort_by:         sort_by,
+                                                           order_by:        order_by)
         if !full
           ids = []
           items.each do |item|
@@ -190,7 +190,7 @@ returns
                             .where(access_condition)
                             .where('(tickets.title LIKE ? OR tickets.number LIKE ? OR ticket_articles.body LIKE ? OR ticket_articles.from LIKE ? OR ticket_articles.to LIKE ? OR ticket_articles.subject LIKE ?)', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%" )
                             .joins(:articles)
-                            .order(order_sql)
+                            .order(Arel.sql(order_sql))
                             .offset(offset)
                             .limit(limit)
       else
@@ -199,7 +199,7 @@ returns
                             .joins(tables)
                             .where(access_condition)
                             .where(query_condition, *bind_condition)
-                            .order(order_sql)
+                            .order(Arel.sql(order_sql))
                             .offset(offset)
                             .limit(limit)
       end

@@ -4,16 +4,18 @@ class Observer::Sla::TicketRebuildEscalation < ActiveRecord::Observer
   observe 'sla', 'calendar'
 
   def after_commit(record)
-    _rebuild(record)
+    return if _check(record)
+
+    _rebuild
   end
 
   private
 
-  def _rebuild(record)
+  def _rebuild
     Cache.delete('SLA::List::Active')
 
     # send background job
-    Delayed::Job.enqueue( Observer::Sla::TicketRebuildEscalation::BackgroundJob.new(record.id) )
+    SlaTicketRebuildEscalationJob.perform_later
   end
 
   def _check(record)
@@ -23,7 +25,6 @@ class Observer::Sla::TicketRebuildEscalation < ActiveRecord::Observer
 
     # check if condition has changed
     changed = false
-    fields_to_check = nil
     fields_to_check = if record.class == Sla
                         %w[condition calendar_id first_response_time update_time solution_time]
                       else
@@ -37,7 +38,7 @@ class Observer::Sla::TicketRebuildEscalation < ActiveRecord::Observer
     end
     return true if !changed
 
-    _rebuild(record)
+    false
   end
 
 end

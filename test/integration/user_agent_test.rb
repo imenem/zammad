@@ -129,7 +129,7 @@ class UserAgentTest < ActiveSupport::TestCase
       "#{host}/test_basic_auth/get/1?submitted=123",
       {},
       {
-        user: 'basic_auth_user',
+        user:     'basic_auth_user',
         password: 'test123',
       }
     )
@@ -149,7 +149,7 @@ class UserAgentTest < ActiveSupport::TestCase
       "#{host}/test_basic_auth/get/1?submitted=123",
       {},
       {
-        user: 'basic_auth_user_not_existing',
+        user:     'basic_auth_user_not_existing',
         password: 'test<>123',
       }
     )
@@ -165,7 +165,7 @@ class UserAgentTest < ActiveSupport::TestCase
         submitted: 'some value',
       },
       {
-        user: 'basic_auth_user',
+        user:     'basic_auth_user',
         password: 'test123',
       }
     )
@@ -187,7 +187,7 @@ class UserAgentTest < ActiveSupport::TestCase
         submitted: 'some value',
       },
       {
-        user: 'basic_auth_user_not_existing',
+        user:     'basic_auth_user_not_existing',
         password: 'test<>123',
       }
     )
@@ -203,7 +203,7 @@ class UserAgentTest < ActiveSupport::TestCase
         submitted: 'some value',
       },
       {
-        user: 'basic_auth_user',
+        user:     'basic_auth_user',
         password: 'test123',
       }
     )
@@ -225,7 +225,7 @@ class UserAgentTest < ActiveSupport::TestCase
         submitted: 'some value',
       },
       {
-        user: 'basic_auth_user_not_existing',
+        user:     'basic_auth_user_not_existing',
         password: 'test<>123',
       }
     )
@@ -237,8 +237,9 @@ class UserAgentTest < ActiveSupport::TestCase
     # delete / 200
     result = UserAgent.delete(
       "#{host}/test_basic_auth/delete/1",
+      {},
       {
-        user: 'basic_auth_user',
+        user:     'basic_auth_user',
         password: 'test123',
       }
     )
@@ -255,8 +256,9 @@ class UserAgentTest < ActiveSupport::TestCase
     # delete / 401
     result = UserAgent.delete(
       "#{host}/test_basic_auth/delete/1",
+      {},
       {
-        user: 'basic_auth_user_not_existing',
+        user:     'basic_auth_user_not_existing',
         password: 'test<>123',
       }
     )
@@ -288,7 +290,7 @@ class UserAgentTest < ActiveSupport::TestCase
     result = UserAgent.request(
       "#{host}/test_basic_auth/redirect",
       {
-        user: 'basic_auth_user',
+        user:     'basic_auth_user',
         password: 'test123',
       }
     )
@@ -307,7 +309,7 @@ class UserAgentTest < ActiveSupport::TestCase
     result = UserAgent.request(
       "#{host}/test_basic_auth/redirect",
       {
-        user: 'basic_auth_user_not_existing',
+        user:     'basic_auth_user_not_existing',
         password: 'test123',
       }
     )
@@ -403,7 +405,7 @@ class UserAgentTest < ActiveSupport::TestCase
 
     # get / 0
     result = UserAgent.request(
-      'http://not.existing.host/test.php',
+      'http://not.existing.host.tld/test.php',
     )
     assert(result)
     assert_equal(false, result.success?)
@@ -412,7 +414,7 @@ class UserAgentTest < ActiveSupport::TestCase
 
     # ftp / 0
     result = UserAgent.request(
-      'ftp://not.existing.host/test.bin',
+      'ftp://not.existing.host.tld/test.bin',
     )
     assert(result)
     assert_equal(false, result.success?)

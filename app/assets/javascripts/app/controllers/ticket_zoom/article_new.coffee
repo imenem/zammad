@@ -133,7 +133,10 @@ class App.TicketZoomArticleNew extends App.Controller
       textRange.select()
 
   isIE10: ->
-    Function('/*@cc_on return document.documentMode===10@*/')()
+    detected = App.Browser.detection()
+    return false if !detected.browser
+    return false if detected.browser.name != 'Explorer'
+    return detected.browser.major == 10
 
   release: =>
     if @subscribeIdTextModule
@@ -173,17 +176,15 @@ class App.TicketZoomArticleNew extends App.Controller
     @$('[data-name="body"]').ce({
       mode:      'richtext'
       multiline: true
-      maxlength: 50000
+      maxlength: 150000
     })
 
     html5Upload.initialize(
-      uploadUrl:       App.Config.get('api_path') + '/ticket_attachment_upload'
+      uploadUrl:       "#{App.Config.get('api_path')}/upload_caches/#{@form_id}"
       dropContainer:   @$('.article-add').get(0)
       cancelContainer: @cancelContainer
       inputField:      @$('.article-attachment input').get(0)
       key:             'File'
-      data:
-        form_id: @form_id
       maxSimultaneousUploads: 1
       onFileAdded:            (file) =>
 
@@ -243,8 +244,9 @@ class App.TicketZoomArticleNew extends App.Controller
         el: @$('.js-textarea').parent()
         data:
           ticket: ticket
-          user: App.Session.get()
+          user:   App.Session.get()
           config: App.Config.all()
+        taskKey: @taskKey
       )
       callback = (ticket) ->
         textModule.reload(
@@ -284,7 +286,7 @@ class App.TicketZoomArticleNew extends App.Controller
       if config && config.params
         params = config.params(params.type, params, @)
 
-    # add initals?
+    # add initials?
     for articleType in @articleTypes
       if articleType.name is @type
         if _.contains(articleType.features, 'body:initials')
@@ -604,9 +606,8 @@ class App.TicketZoomArticleNew extends App.Controller
 
       # delete attachment from storage
       App.Ajax.request(
-        type:  'DELETE'
-        url:   App.Config.get('api_path') + '/ticket_attachment_upload'
-        data:  JSON.stringify(id: id)
+        type:        'DELETE'
+        url:         "#{App.Config.get('api_path')}/upload_caches/#{@form_id}/items/#{id}"
         processData: false
       )
 

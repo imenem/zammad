@@ -46,7 +46,7 @@ module Enrichment
         # Currently all target keys are prefixed with
         # user.
         # which is not necessary since the target object
-        # is allways an user
+        # is always a user
         @mapping.transform_values! { |value| value.sub('user.', '') }
         true
       end
@@ -136,13 +136,13 @@ module Enrichment
 
         record = {
           direction: 'out',
-          facility: 'clearbit',
-          url: "clearbit -> #{@local_user.email}",
-          status: 200,
-          ip: nil,
-          request: { content: @local_user.email },
-          response: {},
-          method: 'GET',
+          facility:  'clearbit',
+          url:       "clearbit -> #{@local_user.email}",
+          status:    200,
+          ip:        nil,
+          request:   { content: @local_user.email },
+          response:  {},
+          method:    'GET',
         }
 
         begin

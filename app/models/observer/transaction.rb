@@ -29,13 +29,13 @@ class Observer::Transaction < ActiveRecord::Observer
     # reset buffer
     EventBuffer.reset('transaction')
 
-    # get asyn backends
+    # get async backends
     sync_backends = []
     Setting.where(area: 'Transaction::Backend::Sync').order(:name).each do |setting|
       backend = Setting.get(setting.name)
       next if params[:disable]&.include?(backend)
 
-      sync_backends.push Kernel.const_get(backend)
+      sync_backends.push backend.constantize
     end
 
     # get uniq objects
@@ -132,7 +132,7 @@ class Observer::Transaction < ActiveRecord::Observer
       end
 
       # get current state of objects
-      object = Kernel.const_get(event[:object]).find_by(id: event[:id])
+      object = event[:object].constantize.find_by(id: event[:id])
 
       # next if object is already deleted
       next if !object
@@ -182,11 +182,11 @@ class Observer::Transaction < ActiveRecord::Observer
     return true if Setting.get('import_mode')
 
     e = {
-      object: record.class.name,
-      type: 'create',
-      data: record,
-      id: record.id,
-      user_id: record.created_by_id,
+      object:     record.class.name,
+      type:       'create',
+      data:       record,
+      id:         record.id,
+      user_id:    record.created_by_id,
       created_at: Time.zone.now,
     }
     EventBuffer.add('transaction', e)
@@ -217,7 +217,6 @@ class Observer::Transaction < ActiveRecord::Observer
     # do not send anything if nothing has changed
     return true if real_changes.blank?
 
-    changed_by_id = nil
     changed_by_id = if record.respond_to?('updated_by_id')
                       record.updated_by_id
                     else
@@ -225,12 +224,12 @@ class Observer::Transaction < ActiveRecord::Observer
                     end
 
     e = {
-      object: record.class.name,
-      type: 'update',
-      data: record,
-      changes: real_changes,
-      id: record.id,
-      user_id: changed_by_id,
+      object:     record.class.name,
+      type:       'update',
+      data:       record,
+      changes:    real_changes,
+      id:         record.id,
+      user_id:    changed_by_id,
       created_at: Time.zone.now,
     }
     EventBuffer.add('transaction', e)

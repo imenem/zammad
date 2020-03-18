@@ -24,14 +24,14 @@ RSpec.describe 'Settings', type: :request do
 
       # index
       get '/api/v1/settings', params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['settings']).to be_falsey
 
       # show
       setting = Setting.find_by(name: 'product_name')
       get "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('authentication failed')
     end
 
@@ -40,7 +40,7 @@ RSpec.describe 'Settings', type: :request do
       # index
       authenticated_as(admin_user)
       get '/api/v1/settings', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response).to be_truthy
       hit_api = false
@@ -59,28 +59,28 @@ RSpec.describe 'Settings', type: :request do
       # show
       setting = Setting.find_by(name: 'product_name')
       get "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to eq('product_name')
 
       setting = Setting.find_by(name: 'api_token_access')
       get "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to eq('api_token_access')
 
       # update
       setting = Setting.find_by(name: 'product_name')
       params = {
-        id: setting.id,
-        name: 'some_new_name',
+        id:          setting.id,
+        name:        'some_new_name',
         preferences: {
-          permission: ['admin.branding', 'admin.some_new_permission'],
+          permission:   ['admin.branding', 'admin.some_new_permission'],
           some_new_key: true,
         }
       }
       put "/api/v1/settings/#{setting.id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to eq('product_name')
       expect(json_response['preferences']['permission'].length).to eq(1)
@@ -90,15 +90,15 @@ RSpec.describe 'Settings', type: :request do
       # update
       setting = Setting.find_by(name: 'api_token_access')
       params = {
-        id: setting.id,
-        name: 'some_new_name',
+        id:          setting.id,
+        name:        'some_new_name',
         preferences: {
-          permission: ['admin.branding', 'admin.some_new_permission'],
+          permission:   ['admin.branding', 'admin.some_new_permission'],
           some_new_key: true,
         }
       }
       put "/api/v1/settings/#{setting.id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to eq('api_token_access')
       expect(json_response['preferences']['permission'].length).to eq(1)
@@ -108,7 +108,7 @@ RSpec.describe 'Settings', type: :request do
       # delete
       setting = Setting.find_by(name: 'product_name')
       delete "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('Not authorized (feature not possible)')
     end
 
@@ -117,7 +117,7 @@ RSpec.describe 'Settings', type: :request do
       # index
       authenticated_as(admin_api_user)
       get '/api/v1/settings', params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Array)
       expect(json_response).to be_truthy
       hit_api = false
@@ -136,41 +136,41 @@ RSpec.describe 'Settings', type: :request do
       # show
       setting = Setting.find_by(name: 'product_name')
       get "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('Not authorized (required ["admin.branding"])')
 
       setting = Setting.find_by(name: 'api_token_access')
       get "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to eq('api_token_access')
 
       # update
       setting = Setting.find_by(name: 'product_name')
       params = {
-        id: setting.id,
-        name: 'some_new_name',
+        id:          setting.id,
+        name:        'some_new_name',
         preferences: {
-          permission: ['admin.branding', 'admin.some_new_permission'],
+          permission:   ['admin.branding', 'admin.some_new_permission'],
           some_new_key: true,
         }
       }
       put "/api/v1/settings/#{setting.id}", params: params, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('Not authorized (required ["admin.branding"])')
 
       # update
       setting = Setting.find_by(name: 'api_token_access')
       params = {
-        id: setting.id,
-        name: 'some_new_name',
+        id:          setting.id,
+        name:        'some_new_name',
         preferences: {
-          permission: ['admin.branding', 'admin.some_new_permission'],
+          permission:   ['admin.branding', 'admin.some_new_permission'],
           some_new_key: true,
         }
       }
       put "/api/v1/settings/#{setting.id}", params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['name']).to eq('api_token_access')
       expect(json_response['preferences']['permission'].length).to eq(1)
@@ -180,7 +180,7 @@ RSpec.describe 'Settings', type: :request do
       # delete
       setting = Setting.find_by(name: 'product_name')
       delete "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('Not authorized (feature not possible)')
     end
 
@@ -189,7 +189,7 @@ RSpec.describe 'Settings', type: :request do
       # index
       authenticated_as(agent_user)
       get '/api/v1/settings', params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['settings']).to be_falsey
       expect(json_response['error']).to eq('Not authorized (user)!')
@@ -197,7 +197,7 @@ RSpec.describe 'Settings', type: :request do
       # show
       setting = Setting.find_by(name: 'product_name')
       get "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('Not authorized (user)!')
     end
 
@@ -206,7 +206,7 @@ RSpec.describe 'Settings', type: :request do
       # index
       authenticated_as(customer_user)
       get '/api/v1/settings', params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response).to be_a_kind_of(Hash)
       expect(json_response['settings']).to be_falsey
       expect(json_response['error']).to eq('Not authorized (user)!')
@@ -214,13 +214,13 @@ RSpec.describe 'Settings', type: :request do
       # show
       setting = Setting.find_by(name: 'product_name')
       get "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('Not authorized (user)!')
 
       # delete
       setting = Setting.find_by(name: 'product_name')
       delete "/api/v1/settings/#{setting.id}", params: {}, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response['error']).to eq('Not authorized (user)!')
     end
   end

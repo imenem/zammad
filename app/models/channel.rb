@@ -3,7 +3,7 @@
 class Channel < ApplicationModel
   include Channel::Assets
 
-  belongs_to :group
+  belongs_to :group, optional: true
 
   store :options
   store :preferences
@@ -58,7 +58,7 @@ fetch one account
       self.last_log_in = result[:notice]
       preferences[:last_fetch] = Time.zone.now
       save!
-      return true
+      true
     rescue => e
       error = "Can't use Channel::Driver::#{adapter.to_classname}: #{e.inspect}"
       logger.error error
@@ -67,7 +67,7 @@ fetch one account
       self.last_log_in = error
       preferences[:last_fetch] = Time.zone.now
       save!
-      return false
+      false
     end
   end
 
@@ -98,7 +98,7 @@ stream instance of account
 
       # set scheduler job to active
 
-      return driver_instance
+      driver_instance
     rescue => e
       error = "Can't use Channel::Driver::#{adapter.to_classname}: #{e.inspect}"
       logger.error error
@@ -179,7 +179,7 @@ stream all accounts
         next if @@channel_stream[channel_id].present?
 
         @@channel_stream[channel_id] = {
-          options: channel.options,
+          options:    channel.options,
           started_at: Time.zone.now,
         }
 
@@ -188,29 +188,29 @@ stream all accounts
 
         # start threads for each channel
         @@channel_stream[channel_id][:thread] = Thread.new do
-          begin
-            logger.info "Started stream channel for '#{channel.id}' (#{channel.area})..."
-            channel.status_in = 'ok'
-            channel.last_log_in = ''
-            channel.save!
-            @@channel_stream_started_till_at[channel_id] = Time.zone.now
-            @@channel_stream[channel_id] ||= {}
-            @@channel_stream[channel_id][:stream_instance] = channel.stream_instance
-            @@channel_stream[channel_id][:stream_instance].stream
-            @@channel_stream[channel_id][:stream_instance].disconnect
-            @@channel_stream.delete(channel_id)
-            @@channel_stream_started_till_at[channel_id] = Time.zone.now
-            logger.info " ...stopped stream thread for '#{channel.id}'"
-          rescue => e
-            error = "Can't use stream for channel (#{channel.id}): #{e.inspect}"
-            logger.error error
-            logger.error e
-            channel.status_in = 'error'
-            channel.last_log_in = error
-            channel.save!
-            @@channel_stream.delete(channel_id)
-            @@channel_stream_started_till_at[channel_id] = Time.zone.now
-          end
+
+          logger.info "Started stream channel for '#{channel.id}' (#{channel.area})..."
+          channel.status_in = 'ok'
+          channel.last_log_in = ''
+          channel.save!
+          @@channel_stream_started_till_at[channel_id] = Time.zone.now
+          @@channel_stream[channel_id] ||= {}
+          @@channel_stream[channel_id][:stream_instance] = channel.stream_instance
+          @@channel_stream[channel_id][:stream_instance].stream
+          @@channel_stream[channel_id][:stream_instance].disconnect
+          @@channel_stream.delete(channel_id)
+          @@channel_stream_started_till_at[channel_id] = Time.zone.now
+          logger.info " ...stopped stream thread for '#{channel.id}'"
+        rescue => e
+          error = "Can't use stream for channel (#{channel.id}): #{e.inspect}"
+          logger.error error
+          logger.error e
+          channel.status_in = 'error'
+          channel.last_log_in = error
+          channel.save!
+          @@channel_stream.delete(channel_id)
+          @@channel_stream_started_till_at[channel_id] = Time.zone.now
+
         end
       end
 
@@ -321,7 +321,7 @@ load channel driver and return class
     # http://stem.ps/rails/2015/01/25/ruby-gotcha-toplevel-constant-referenced-by.html
     require_dependency "channel/driver/#{adapter.to_filename}"
 
-    Object.const_get("::Channel::Driver::#{adapter.to_classname}")
+    "::Channel::Driver::#{adapter.to_classname}".constantize
   end
 
 =begin

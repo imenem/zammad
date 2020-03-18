@@ -64,7 +64,7 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
     end
 
     # unprocessable mail check
-    directory = Rails.root.join('tmp', 'unprocessable_mail').to_s
+    directory = Rails.root.join('tmp/unprocessable_mail').to_s
     if File.exist?(directory)
       count = 0
       Dir.glob("#{directory}/*.eml") do |_entry|
@@ -99,11 +99,26 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
       issues.push "#{count_failed_jobs} failing background jobs"
     end
 
-    listed_failed_jobs = failed_jobs.select(:handler, :attempts).limit(10)
-    sorted_failed_jobs = listed_failed_jobs.group_by(&:name).sort_by { |_handler, entries| entries.length }.reverse.to_h
-    sorted_failed_jobs.each_with_index do |(name, jobs), index|
-      attempts = jobs.map(&:attempts).sum
-      issues.push "Failed to run background job ##{index += 1} '#{name}' #{jobs.count} time(s) with #{attempts} attempt(s)."
+    handler_attempts_map = {}
+    failed_jobs.order(:created_at).limit(10).each do |job|
+
+      job_name = if job.class.name == 'Delayed::Backend::ActiveRecord::Job'.freeze && job.payload_object.respond_to?(:job_data)
+                   job.payload_object.job_data['job_class']
+                 else
+                   job.name
+                 end
+
+      handler_attempts_map[job_name] ||= {
+        count:    0,
+        attempts: 0,
+      }
+
+      handler_attempts_map[job_name][:count]    += 1
+      handler_attempts_map[job_name][:attempts] += job.attempts
+    end
+
+    Hash[handler_attempts_map.sort].each_with_index do |(job_name, job_data), index|
+      issues.push "Failed to run background job ##{index + 1} '#{job_name}' #{job_data[:count]} time(s) with #{job_data[:attempts]} attempt(s)."
     end
 
     # job count check
@@ -152,7 +167,7 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
       result = {
         healthy: true,
         message: 'success',
-        token: token,
+        token:   token,
       }
       render json: result
       return
@@ -204,19 +219,22 @@ curl http://localhost/api/v1/monitoring/status?token=XXX
     end
 
     status = {
-      counts: {},
+      counts:          {},
       last_created_at: {},
-      last_login: last_login,
-      agents: User.with_permissions('ticket.agent').count,
+      last_login:      last_login,
+      agents:          User.with_permissions('ticket.agent').count,
     }
 
     map = {
-      users: User,
-      groups: Group,
-      overviews: Overview,
-      tickets: Ticket,
-      ticket_articles: Ticket::Article,
-      text_modules: TextModule,
+      users:                     User,
+      groups:                    Group,
+      overviews:                 Overview,
+      tickets:                   Ticket,
+      ticket_articles:           Ticket::Article,
+      text_modules:              TextModule,
+      object_manager_attributes: ObjectManager::Attribute,
+      knowledge_base_categories: KnowledgeBase::Category,
+      knowledge_base_answers:    KnowledgeBase::Answer,
     }
     map.each do |key, class_name|
       status[:counts][key] = class_name.count
@@ -285,7 +303,7 @@ curl http://localhost/api/v1/monitoring/amount_check?token=XXX&periode=1h
     raise Exceptions::UnprocessableEntity, 'periode is missing!' if params[:periode].blank?
 
     scale = params[:periode][-1, 1]
-    raise Exceptions::UnprocessableEntity, 'periode need to have s, m, h or d as last!' if scale !~ /^(s|m|h|d)$/
+    raise Exceptions::UnprocessableEntity, 'periode need to have s, m, h or d as last!' if !scale.match?(/^(s|m|h|d)$/)
 
     periode = params[:periode][0, params[:periode].length - 1]
     raise Exceptions::UnprocessableEntity, 'periode need to be an integer!' if periode.to_i.zero?
@@ -307,18 +325,21 @@ curl http://localhost/api/v1/monitoring/amount_check?token=XXX&periode=1h
       { param: :min_warning, notice: 'warning', type: 'lt' },
     ]
     result = {}
+    state_param = false
     map.each do |row|
       next if params[row[:param]].blank?
       raise Exceptions::UnprocessableEntity, "#{row[:param]} need to be an integer!" if params[row[:param]].to_i.zero?
+
+      state_param = true
 
       count = Ticket.where('created_at >= ?', created_at).count
 
       if row[:type] == 'gt'
         if count > params[row[:param]].to_i
           result = {
-            state: row[:notice],
+            state:   row[:notice],
             message: "The limit of #{params[row[:param]]} was exceeded with #{count} in the last #{params[:periode]}",
-            count: count,
+            count:   count,
           }
           break
         end
@@ -327,9 +348,9 @@ curl http://localhost/api/v1/monitoring/amount_check?token=XXX&periode=1h
       next if count > params[row[:param]].to_i
 
       result = {
-        state: row[:notice],
+        state:   row[:notice],
         message: "The minimum of #{params[row[:param]]} was undercut by #{count} in the last #{params[:periode]}",
-        count: count,
+        count:   count,
       }
       break
     end
@@ -337,9 +358,12 @@ curl http://localhost/api/v1/monitoring/amount_check?token=XXX&periode=1h
     if result.blank?
       result = {
         state: 'ok',
-        message: '',
         count: Ticket.where('created_at >= ?', created_at).count,
       }
+    end
+
+    if state_param == false
+      result.delete(:state)
     end
 
     render json: result

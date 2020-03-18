@@ -95,10 +95,10 @@ log object update history with all updated attributes, if configured - will be e
       end
       data = {
         history_attribute: attribute_name,
-        value_from: value_str[0].to_s,
-        value_to: value_str[1].to_s,
-        id_from: value_id[0],
-        id_to: value_id[1],
+        value_from:        value_str[0].to_s,
+        value_to:          value_str[1].to_s,
+        id_from:           value_id[0],
+        id_to:             value_id[1],
       }
       #logger.info "HIST NEW #{self.class.to_s}.find(#{self.id}) #{data.inspect}"
       history_log('updated', updated_by_id, data)
@@ -204,25 +204,27 @@ returns
 =end
 
   def history_get(fulldata = false)
+    relation_object = self.class.instance_variable_get(:@history_relation_object) || nil
+
     if !fulldata
-      return History.list(self.class.name, self['id'])
+      return History.list(self.class.name, self['id'], relation_object)
     end
 
     # get related objects
-    history = History.list(self.class.name, self['id'], nil, true)
+    history = History.list(self.class.name, self['id'], relation_object, true)
     history[:list].each do |item|
-      record = Kernel.const_get(item['object']).find(item['o_id'])
+      record = item['object'].constantize.find(item['o_id'])
 
       history[:assets] = record.assets(history[:assets])
 
       if item['related_object']
-        record = Kernel.const_get(item['related_object']).find(item['related_o_id'])
+        record = item['related_object'].constantize.find(item['related_o_id'])
         history[:assets] = record.assets(history[:assets])
       end
     end
     {
       history: history[:list],
-      assets: history[:assets],
+      assets:  history[:assets],
     }
   end
 
@@ -230,7 +232,7 @@ returns
   class_methods do
 =begin
 
-serve methode to ignore model attributes in historization
+serve method to ignore model attributes in historization
 
 class Model < ApplicationModel
   include HasHistory
@@ -242,5 +244,21 @@ end
     def history_attributes_ignored(*attributes)
       @history_attributes_ignored = attributes
     end
+
+=begin
+
+serve method to ignore model attributes in historization
+
+class Model < ApplicationModel
+  include HasHistory
+  history_relation_object 'Some::Relation::Object'
+end
+
+=end
+
+    def history_relation_object(attribute)
+      @history_relation_object = attribute
+    end
+
   end
 end

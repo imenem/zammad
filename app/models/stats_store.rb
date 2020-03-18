@@ -5,8 +5,8 @@ class StatsStore < ApplicationModel
   include StatsStore::SearchIndex
 
   # rubocop:disable Rails/InverseOf
-  belongs_to :stats_store_object, class_name: 'ObjectLookup', foreign_key: 'stats_store_object_id'
-  belongs_to :related_stats_store_object, class_name: 'ObjectLookup', foreign_key: 'related_stats_store_object_id'
+  belongs_to :stats_store_object, class_name: 'ObjectLookup', foreign_key: 'stats_store_object_id', optional: true
+  belongs_to :related_stats_store_object, class_name: 'ObjectLookup', foreign_key: 'related_stats_store_object_id', optional: true
   # rubocop:enable Rails/InverseOf
 
   store :data
@@ -112,11 +112,11 @@ class StatsStore < ApplicationModel
     # create history
     record = {
       stats_store_object_id: object_id,
-      o_id: data[:o_id],
-      key: data[:key],
-      data: data[:data],
-      created_at: data[:created_at],
-      created_by_id: data[:created_by_id],
+      o_id:                  data[:o_id],
+      key:                   data[:key],
+      data:                  data[:data],
+      created_at:            data[:created_at],
+      created_by_id:         data[:created_by_id],
     }
 
     StatsStore.create(record)
@@ -141,7 +141,7 @@ class StatsStore < ApplicationModel
     # create history
     record = {
       stats_store_object_id: object_id,
-      o_id: data[:o_id],
+      o_id:                  data[:o_id],
     }
 
     StatsStore.where(record).destroy_all

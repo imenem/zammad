@@ -16,19 +16,17 @@ returns
 =end
 
   def self.generate
-
-    # generate number
     49_999.times do
       number = adapter.generate
-      ticket = Ticket.find_by(number: number)
-      return number if !ticket
+      return number if !Ticket.exists?(number: number)
     end
+
     raise "Can't generate new ticket number!"
   end
 
 =begin
 
-check if string contrains a valid ticket number
+check if string contains a valid ticket number
 
   result = Ticket::Number.check('some string [Ticket#123456]')
 
@@ -42,19 +40,9 @@ returns
     adapter.check(string)
   end
 
+  # load backend based on config
   def self.adapter
-
-    # load backend based on config
-    adapter_name = Setting.get('ticket_number')
-    if !adapter_name
-      raise 'Missing ticket_number setting option'
-    end
-
-    adapter = load_adapter(adapter_name)
-    if !adapter
-      raise "Can't load ticket_number adapter '#{adapter_name}'"
-    end
-
-    adapter
+    Setting.get('ticket_number')&.constantize ||
+      raise('Missing ticket_number setting option')
   end
 end

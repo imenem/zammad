@@ -2,10 +2,8 @@ class Sessions::Event
   include ApplicationLib
 
   def self.run(params)
-    adapter = "Sessions::Event::#{params[:event].to_classname}"
-
     begin
-      backend = load_adapter(adapter)
+      backend = "Sessions::Event::#{params[:event].to_classname}".constantize
     rescue => e
       Rails.logger.error e.inspect
       Rails.logger.error e.backtrace
@@ -20,7 +18,7 @@ class Sessions::Event
     rescue => e
       Rails.logger.error e.inspect
       Rails.logger.error e.backtrace
-      return { event: 'error', data: { error: e.message, payload: params[:payload] } }
+      { event: 'error', data: { error: e.message, payload: params[:payload] } }
     end
   end
 

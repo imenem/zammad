@@ -214,7 +214,9 @@ class App.ControllerGenericIndex extends App.Controller
       pageData:      @pageData
       genericObject: @genericObject
       container:     @container
+      small:         @small
       large:         @large
+      veryLarge:     @veryLarge
     )
 
   new: (e) ->
@@ -223,7 +225,9 @@ class App.ControllerGenericIndex extends App.Controller
       pageData:      @pageData
       genericObject: @genericObject
       container:     @container
+      small:         @small
       large:         @large
+      veryLarge:     @veryLarge
     )
 
   import: (e) ->
@@ -243,7 +247,7 @@ class App.ControllerGenericDescription extends App.ControllerModal
   head: 'Description'
 
   content: =>
-    marked(@description)
+    marked(App.i18n.translateContent(@description))
 
   onSubmit: =>
     @close()
@@ -260,11 +264,14 @@ class App.ControllerModalLoading extends App.Controller
 
     @render()
 
-    @el.modal
+    @el.modal(
       keyboard:  false
       show:      true
       backdrop:  'static'
       container: @container
+    ).on(
+      'hidden.bs.modal': @localOnClosed
+    )
 
   render: ->
     @html App.view('generic/modal_loader')(
@@ -283,9 +290,12 @@ class App.ControllerModalLoading extends App.Controller
   showIcon: =>
     @$('.js-loadingIcon').removeClass('hide')
 
+  localOnClosed: =>
+    @el.remove()
+
   hide: (delay) =>
     remove = =>
-      @el.remove()
+      @el.modal('hide')
     if !delay
       remove()
       return
@@ -397,6 +407,8 @@ class App.ControllerTabs extends App.Controller
       subHeader: @subHeader
       tabs: @tabs
       addTab: @addTab
+      headerSwitchName: @headerSwitchName
+      headerSwitchChecked: @headerSwitchChecked
     )
 
     # insert content
@@ -432,8 +444,6 @@ class App.ControllerNavSidbar extends App.Controller
 
     if @authenticateRequired
       @authenticateCheckRedirect()
-
-    @user = App.User.find(App.Session.get('id'))
 
     @render(true)
 
@@ -495,7 +505,7 @@ class App.ControllerNavSidbar extends App.Controller
         else
           match = false
           for permissionName in item.permission
-            if !match && @user.permission(permissionName)
+            if !match && @permissionCheck(permissionName)
               match = true
               groupsUnsorted.push item
     _.sortBy(groupsUnsorted, (item) -> return item.prio)
@@ -514,7 +524,7 @@ class App.ControllerNavSidbar extends App.Controller
             else
               match = false
               for permissionName in item.permission
-                if !match && @user && @user.permission(permissionName)
+                if !match && @permissionCheck(permissionName)
                   match = true
                   itemsUnsorted.push item
 
@@ -634,6 +644,14 @@ class App.GenericHistory extends App.ControllerModal
       content = ''
       if item.type is 'notification' || item.type is 'email'
         content = "#{ @T( item.type ) } #{ @T( 'sent to' ) } '#{ item.value_to }'"
+      else if item.type is 'received_merge'
+        ticket = App.Ticket.find( item.id_from )
+        ticket_link = "<a href=\"#ticket/zoom/#{ item.id_from }\">##{ ticket.number }</a>"
+        content = "#{ @T( 'Ticket' ) } #{ ticket_link } #{ @T( 'was merged into this ticket' ) }"
+      else if item.type is 'merged_into'
+        ticket = App.Ticket.find( item.id_to )
+        ticket_link = "<a href=\"#ticket/zoom/#{ item.id_to }\">##{ ticket.number }</a>"
+        content = "#{ @T( 'This ticket was merged into' ) } #{ @T( 'ticket' ) } #{ ticket_link }"
       else
         content = "#{ @T( item.type ) } #{ @T(item.object) } "
         if item.attribute
@@ -726,7 +744,7 @@ class App.Sidebar extends App.Controller
       dir:            App.i18n.dir()
     ))
 
-    # init sidebar badget
+    # init sidebar badge
     for item in itemsLocal
       el = localEl.find('.tabsSidebar-tab[data-tab="' + item.name + '"]')
       if item.badgeCallback

@@ -34,7 +34,7 @@ class App.TicketZoom extends App.Controller
     if cache
       @load(cache)
 
-    # check if ticket has beed updated every 30 min
+    # check if ticket has been updated every 30 min
     update = =>
       if !@initFetched
         @fetch()
@@ -74,7 +74,7 @@ class App.TicketZoom extends App.Controller
         #console.log('debug no fetch, current ticket already there or requested')
         return
       if new Date(data.updated_at).getTime() < new Date(@ticketUpdatedAtLastCall).getTime()
-        #console.log('debug no fetch, current ticket already newser or requested')
+        #console.log('debug no fetch, current ticket already newer or requested')
         return
     @ticketUpdatedAtLastCall = data.updated_at
 
@@ -200,7 +200,7 @@ class App.TicketZoom extends App.Controller
       url: @url()
       id:  @ticket_id
 
-    # set icon and tilte if defined
+    # set icon and title if defined
     if @taskIconClass
       meta.iconClass = @taskIconClass
     if @taskHead
@@ -500,6 +500,8 @@ class App.TicketZoom extends App.Controller
       if @Config.get('ticket_auto_assignment') is true
         if @ticket.owner_id is 1 && @permissionCheck('ticket.agent') && @ticket.editable('full')
           userIdsIgnore = @Config.get('ticket_auto_assignment_user_ids_ignore') || []
+          if !_.isArray(userIdsIgnore)
+            userIdsIgnore = [userIdsIgnore]
           userIgnored = false
           currentUserId = App.Session.get('id')
           for userIdIgnore in userIdsIgnore
@@ -645,7 +647,7 @@ class App.TicketZoom extends App.Controller
       state = App.TicketState.findByAttribute('id', @ticket.state_id)
       return if state && state.default_create is true
 
-    # prevent multiple changes for the default follow up state
+    # prevent multiple changes for the default follow-up state
     @isDefaultFollowUpStateSet = true
 
     # get state
@@ -766,6 +768,7 @@ class App.TicketZoom extends App.Controller
       return
 
     ticketParams = @formParam(@$('.edit'))
+    articleParams = @articleNew.params()
 
     # validate ticket
     # we need to use the full ticket because
@@ -773,7 +776,7 @@ class App.TicketZoom extends App.Controller
     # for condition check
     ticket = App.Ticket.fullLocal(@ticket_id)
 
-    # reset article - should not be resubmited on next ticket update
+    # reset article - should not be resubmitted on next ticket update
     ticket.article = undefined
 
     # update ticket attributes
@@ -784,6 +787,7 @@ class App.TicketZoom extends App.Controller
       App.Ticket.macro(
         macro: macro.perform
         ticket: ticket
+        article: articleParams
         callback:
           tagAdd: (tag) =>
             return if !@sidebarWidget
@@ -807,7 +811,17 @@ class App.TicketZoom extends App.Controller
     # stop autosave
     @autosaveStop()
 
-    # validate ticket
+    # no form validation if macro is performed
+    if !macro.perform
+
+      # validate ticket form using HTML5 validity check
+      element = @$('.edit').parent().get(0)
+      if element && element.reportValidity && !element.reportValidity()
+        @submitEnable(e)
+        @autosaveStart()
+        return
+
+    # validate ticket by model
     errors = ticket.validate(
       screen: 'edit'
     )
@@ -822,7 +836,6 @@ class App.TicketZoom extends App.Controller
       @autosaveStart()
       return
 
-    articleParams = @articleNew.params()
     if articleParams && articleParams.body
       article = new App.TicketArticle
       article.load(articleParams)
@@ -881,6 +894,10 @@ class App.TicketZoom extends App.Controller
     if macro && macro.ux_flow_next_up
       taskAction = macro.ux_flow_next_up
 
+    nextTicket = undefined
+    if taskAction is 'closeNextInOverview' || taskAction is 'next_from_overview'
+      nextTicket = @getNextTicketInOverview()
+
     # submit changes
     @ajax(
       id: "ticket_update_#{ticket.id}"
@@ -893,7 +910,7 @@ class App.TicketZoom extends App.Controller
         #App.SessionStorage.set(@key, data)
         @load(data, true, true)
 
-        # reset article - should not be resubmited on next ticket update
+        # reset article - should not be resubmitted on next ticket update
         ticket.article = undefined
 
         # reset form after save
@@ -903,8 +920,8 @@ class App.TicketZoom extends App.Controller
           @sidebarWidget.commit()
 
         if taskAction is 'closeNextInOverview' || taskAction is 'next_from_overview'
+          @openTicketInOverview(nextTicket)
           App.Event.trigger('overview:fetch')
-          @taskOpenNextTicketInOverview()
           return
 
         if taskAction is 'closeTab' || taskAction is 'next_task'
@@ -942,14 +959,13 @@ class App.TicketZoom extends App.Controller
     # reset task
     @taskReset()
 
-    # reset default follow up state
+    # reset default follow-up state
     @resetDefaultFollowUpState()
 
     # reset/delete uploaded attachments
     App.Ajax.request(
       type:  'DELETE'
-      url:   App.Config.get('api_path') + '/ticket_attachment_upload'
-      data:  JSON.stringify(form_id: @form_id)
+      url:   "#{App.Config.get('api_path')}/upload_caches/#{@form_id}"
       processData: false
     )
 
@@ -989,8 +1005,11 @@ class App.TicketZoom extends App.Controller
   # reset task state
   taskReset: =>
     @form_id = App.ControllerForm.formId()
+
     @articleNew.form_id = @form_id
     @articleNew.render()
+
+    @articleView.updateFormId(@form_id)
 
     @localTaskData =
       ticket:  {}

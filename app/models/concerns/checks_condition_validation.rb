@@ -13,6 +13,7 @@ module ChecksConditionValidation
 
     # check if a valid condition got inserted.
     validate_condition.delete('ticket.action')
+    validate_condition.delete('execution_time.calendar_id')
     validate_condition.each do |key, value|
       next if !value
       next if !value['operator']
@@ -23,10 +24,10 @@ module ChecksConditionValidation
 
     validate_condition['ticket.id'] = {
       operator: 'is',
-      value: 1,
+      value:    1,
     }
 
-    ticket_count, tickets = Ticket.selectors(validate_condition, 1, User.find(1))
+    ticket_count, _tickets = Ticket.selectors(validate_condition, limit: 1, current_user: User.find(1))
     return true if ticket_count.present?
 
     raise Exceptions::UnprocessableEntity, 'Invalid ticket selector conditions'

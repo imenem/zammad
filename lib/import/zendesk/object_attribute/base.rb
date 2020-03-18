@@ -18,7 +18,7 @@ module Import
         def add(object, name, attribute)
           ObjectManager::Attribute.add( attribute_config(object, name, attribute) )
           ObjectManager::Attribute.migration_execute(false)
-        rescue => e
+        rescue
           # rubocop:disable Style/SpecialGlobalVars
           raise $!, "Problem with ObjectManager Attribute '#{name}': #{$!}", $!.backtrace
           # rubocop:enable Style/SpecialGlobalVars
@@ -55,7 +55,7 @@ module Import
             edit: {
               Customer: {
                 shown: attribute.visible_in_portal,
-                null: !attribute.required_in_portal,
+                null:  !attribute.required_in_portal,
               },
             }.merge(config)
           }

@@ -20,12 +20,11 @@ class IntegrationIdoitTest < TestCase
 
     api_category = ENV['IDOIT_API_CATEGORY']
 
-    id = rand(99_999_999)
     @browser = browser_instance
     login(
-      username: 'master@example.com',
-      password: 'test',
-      url: browser_url,
+      username:    'master@example.com',
+      password:    'test',
+      url:         browser_url,
       auto_wizard: true,
     )
 
@@ -34,33 +33,33 @@ class IntegrationIdoitTest < TestCase
     click(css: 'a[href="#system/integration"]')
     click(css: 'a[href="#system/integration/idoit"]')
     switch(
-      css: '.content.active .js-switch',
+      css:  '.content.active .js-switch',
       type: 'on'
     )
 
     # fill in i-doit login details
     set(
-      css: '.content.active .main input[name="api_token"]',
+      css:   '.content.active .main input[name="api_token"]',
       value: api_token,
     )
     set(
-      css: '.content.active .main input[name="endpoint"]',
+      css:   '.content.active .main input[name="endpoint"]',
       value: api_endpoint,
     )
     click(css: '.content.active .main .js-submit')
 
     watch_for(
-      css: '#notify',
+      css:   '#notify',
       value: 'update successful',
     )
 
     # new create a new ticket with an i-doit object
-    ticket = ticket_create(
-      data: {
+    ticket_create(
+      data:          {
         customer: 'nico',
-        group: 'Users',
-        title: 'subject - i-doit integration #1',
-        body: 'body - i-doit integration',
+        group:    'Users',
+        title:    'subject - i-doit integration #1',
+        body:     'body - i-doit integration',
       },
       do_not_submit: true,
     )
@@ -115,12 +114,12 @@ class IntegrationIdoitTest < TestCase
     tasks_close_all()
 
     # new create a new ticket with an i-doit object
-    ticket = ticket_create(
-      data: {
+    ticket_create(
+      data:          {
         customer: 'nico',
-        group: 'Users',
-        title: 'subject - i-doit integration #2',
-        body: 'body - i-doit integration',
+        group:    'Users',
+        title:    'subject - i-doit integration #2',
+        body:     'body - i-doit integration',
       },
       do_not_submit: true,
     )
@@ -181,7 +180,7 @@ class IntegrationIdoitTest < TestCase
       css: ".content.active .sidebar[data-tab='idoit'] .sidebar-content",
     )
     match(
-      css: ".content.active .sidebar[data-tab='idoit'] .sidebar-content",
+      css:   ".content.active .sidebar[data-tab='idoit'] .sidebar-content",
       value: 'none',
     )
     exists_not(
@@ -233,7 +232,7 @@ class IntegrationIdoitTest < TestCase
     click(css: 'a[href="#system/integration/idoit"]')
 
     switch(
-      css: '.content.active .js-switch',
+      css:  '.content.active .js-switch',
       type: 'off'
     )
   end

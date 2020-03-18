@@ -104,7 +104,7 @@ RSpec.describe Import::OTRS::CustomerUser do
       }
     end
 
-    before(:each) do
+    before do
       travel_to DateTime.current
     end
 
@@ -117,7 +117,7 @@ RSpec.describe Import::OTRS::CustomerUser do
     end
   end
 
-  context 'regular user' do
+  context 'regular user with capitalized email' do
 
     let(:object_structure) { load_customer_json('capital_email') }
     let(:zammad_structure) do

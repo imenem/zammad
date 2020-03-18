@@ -153,6 +153,7 @@ module Import
         return result if role_object['GroupIDs'].blank?
 
         permissions = role_object['GroupIDs'][ group['ID'] ]
+        permissions ||= role_object['GroupIDs'][ group['ID'].to_s ]
 
         return result if !permissions
 
@@ -160,7 +161,7 @@ module Import
           result.push 'Admin'
         end
 
-        return result if group['Name'] !~ /^(stats|report)/
+        return result if !group['Name'].match?(/^(stats|report)/)
         return result if !( permissions.include?('ro') || permissions.include?('rw') )
 
         result.push 'Report'

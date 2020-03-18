@@ -3,10 +3,10 @@
 class OnlineNotification < ApplicationModel
   include OnlineNotification::Assets
 
-  belongs_to :user
+  belongs_to :user, optional: true
   # rubocop:disable Rails/InverseOf
-  belongs_to :object, class_name: 'ObjectLookup', foreign_key: 'object_lookup_id'
-  belongs_to :type,   class_name: 'TypeLookup',   foreign_key: 'type_lookup_id'
+  belongs_to :object, class_name: 'ObjectLookup', foreign_key: 'object_lookup_id', optional: true
+  belongs_to :type,   class_name: 'TypeLookup',   foreign_key: 'type_lookup_id', optional: true
   # rubocop:enable Rails/InverseOf
 
   after_create    :notify_clients_after_change
@@ -41,35 +41,22 @@ add a new online notification for this user
       object_id = ObjectLookup.by_name(data[:object])
     end
 
+    # check if object for online notification exists
+    exists_by_object_and_id?(data[:object], data[:o_id])
+
     record = {
-      o_id: data[:o_id],
+      o_id:             data[:o_id],
       object_lookup_id: object_id,
-      type_lookup_id: type_id,
-      seen: data[:seen],
-      user_id: data[:user_id],
-      created_by_id: data[:created_by_id],
-      updated_by_id: data[:updated_by_id] || data[:created_by_id],
-      created_at: data[:created_at] || Time.zone.now,
-      updated_at: data[:updated_at] || Time.zone.now,
+      type_lookup_id:   type_id,
+      seen:             data[:seen],
+      user_id:          data[:user_id],
+      created_by_id:    data[:created_by_id],
+      updated_by_id:    data[:updated_by_id] || data[:created_by_id],
+      created_at:       data[:created_at] || Time.zone.now,
+      updated_at:       data[:updated_at] || Time.zone.now,
     }
 
     OnlineNotification.create!(record)
-  end
-
-=begin
-
-mark online notification as seen
-
-  OnlineNotification.seen(
-    id: 2,
-  )
-
-=end
-
-  def self.seen(data)
-    notification = OnlineNotification.find(data[:id])
-    notification.seen = true
-    notification.save
   end
 
 =begin
@@ -84,7 +71,7 @@ remove whole online notifications of an object
     object_id = ObjectLookup.by_name(object_name)
     OnlineNotification.where(
       object_lookup_id: object_id,
-      o_id: o_id,
+      o_id:             o_id,
     ).destroy_all
   end
 
@@ -101,9 +88,9 @@ remove whole online notifications of an object by type
     type_id = TypeLookup.by_name(type_name)
     OnlineNotification.where(
       object_lookup_id: object_id,
-      type_lookup_id: type_id,
-      o_id: o_id,
-      user_id: user.id,
+      type_lookup_id:   type_id,
+      o_id:             o_id,
+      user_id:          user.id,
     ).destroy_all
   end
 
@@ -117,7 +104,7 @@ return all online notifications of an user
 
   def self.list(user, limit)
     OnlineNotification.where(user_id: user.id)
-                      .order('created_at DESC, id DESC')
+                      .order(created_at: :desc)
                       .limit(limit)
   end
 
@@ -133,9 +120,9 @@ return all online notifications of an object
     object_id = ObjectLookup.by_name(object_name)
     notifications = OnlineNotification.where(
       object_lookup_id: object_id,
-      o_id: o_id,
+      o_id:             o_id,
     )
-                                      .order('created_at DESC, id DESC')
+                                      .order(created_at: :desc)
                                       .limit(10_000)
     notifications
   end
@@ -152,8 +139,8 @@ mark online notification as seen by object
     object_id     = ObjectLookup.by_name(object_name)
     notifications = OnlineNotification.where(
       object_lookup_id: object_id,
-      o_id: o_id,
-      seen: false,
+      o_id:             o_id,
+      seen:             false,
     )
     notifications.each do |notification|
       notification.seen = true
@@ -167,14 +154,14 @@ mark online notification as seen by object
       user_id,
       {
         event: 'OnlineNotification::changed',
-        data: {}
+        data:  {}
       }
     )
   end
 
 =begin
 
-check if all notifications are seed for dedecated object
+check if all notifications are seen for dedicated object
 
   OnlineNotification.all_seen?('Ticket', 123)
 
@@ -242,10 +229,10 @@ with dedicated times
     OnlineNotification.where('created_at < ?', max_age).delete_all
     OnlineNotification.where('seen = ? AND updated_at < ?', true, max_own_seen).each do |notification|
 
-      # delete own "seen" notificatons after 1 hour
+      # delete own "seen" notifications after 1 hour
       next if notification.user_id == notification.updated_by_id && notification.updated_at > max_own_seen
 
-      # delete notificatons which are set to "seen" by somebody else after 8 hour
+      # delete notifications which are set to "seen" by somebody else after 8 hours
       next if notification.user_id != notification.updated_by_id && notification.updated_at > max_auto_seen
 
       notification.delete
@@ -257,7 +244,7 @@ with dedicated times
         user.id,
         {
           event: 'OnlineNotification::changed',
-          data: {}
+          data:  {}
         }
       )
       sleep 2 # slow down client requests

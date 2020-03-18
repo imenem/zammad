@@ -43,14 +43,8 @@ class App.UserProfile extends App.Controller
 
     new User(
       object_id: user.id
-      el: elLocal.find('.js-name')
+      el: elLocal.find('.js-profileName')
     )
-
-    if user.organization_id
-      new Organization(
-        object_id: user.organization_id
-        el: elLocal.find('.js-organization')
-      )
 
     new Object(
       el:        elLocal.find('.js-object-container')
@@ -107,8 +101,6 @@ class ActionRow extends App.ObserverActionRow
     @navigate("ticket/create/customer/#{user.id}")
 
   actions: (user) =>
-    currentUser = App.User.find(App.Session.get('id'))
-
     actions = [
       {
         name:     'history'
@@ -122,7 +114,7 @@ class ActionRow extends App.ObserverActionRow
       }
     ]
 
-    if user.isAccessibleBy(currentUser, 'change')
+    if user.isAccessibleBy(App.User.current(), 'change')
       actions.unshift {
         name:     'edit'
         title:    'Edit'
@@ -208,9 +200,19 @@ class User extends App.ObserverController
   observe:
     firstname: true
     lastname: true
+    organization_id: true
+    image: true
 
   render: (user) =>
-    @html App.Utils.htmlEscape(user.displayName())
+    if user.organization_id
+      new Organization(
+        object_id: user.organization_id
+        el: @el.siblings('.js-organization')
+      )
+
+    @html App.view('user_profile/name')(
+      user: user
+    )
 
 class Router extends App.ControllerPermanent
   requiredPermission: 'ticket.agent'

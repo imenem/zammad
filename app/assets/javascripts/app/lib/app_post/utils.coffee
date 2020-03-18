@@ -73,6 +73,8 @@ class App.Utils
     ascii = @textCleanup(ascii)
     #ascii = @htmlEscape(ascii)
     ascii = @linkify(ascii)
+    ascii = ascii.replace(/(\n\r|\r\n|\r)/g, "\n")
+    ascii = ascii.replace(/  /g, ' &nbsp;')
     ascii = '<div>' + ascii.replace(/\n/g, '</div><div>') + '</div>'
     ascii.replace(/<div><\/div>/g, '<div><br></div>')
 
@@ -679,7 +681,8 @@ class App.Utils
     $('<div/>').html(message).contents().each (index, node) ->
       text = $(node).text()
       if node.nodeType == Node.TEXT_NODE
-        res.push text
+        # convert text back to HTML as it was before
+        res.push $('<div>').text(text).html()
         if text.trim().length
           contentNodes.push index
       else if node.nodeType == Node.ELEMENT_NODE
@@ -704,7 +707,7 @@ class App.Utils
     res.join('')
 
   # textReplaced = App.Utils.replaceTags( template, { user: { firstname: 'Bob', lastname: 'Smith' } } )
-  @replaceTags: (template, objects) ->
+  @replaceTags: (template, objects, encodeLink = false) ->
     template = template.replace( /#\{\s{0,2}(.+?)\s{0,2}\}/g, (index, key) ->
       key = key.replace(/<.+?>/g, '')
       levels  = key.split(/\./)
@@ -744,6 +747,7 @@ class App.Utils
       else
         value = ''
       value = '-' if value is ''
+      value = encodeURIComponent(value) if encodeLink
       value
     )
 
@@ -816,17 +820,22 @@ class App.Utils
   # check if attachment is referenced in message
   @checkAttachmentReference: (message) ->
     return false if !message
+
+    # remove blockquote from message, check only the unquoted content
+    tmp = $('<div>' + message + '</div>')
+    tmp.find('blockquote').remove()
+    text = tmp.text()
+
     matchwords = ['Attachment', 'attachment', 'Attached', 'attached', 'Enclosed', 'enclosed', 'Enclosure', 'enclosure']
     for word in matchwords
-
       # en
       attachmentTranslatedRegExp = new RegExp("\\W#{word}\\W", 'i')
-      return word if message.match(attachmentTranslatedRegExp)
+      return word if text.match(attachmentTranslatedRegExp)
 
       # user locale
       attachmentTranslated = App.i18n.translateContent(word)
       attachmentTranslatedRegExp = new RegExp("\\W#{attachmentTranslated}\\W", 'i')
-      return attachmentTranslated if message.match(attachmentTranslatedRegExp)
+      return attachmentTranslated if text.match(attachmentTranslatedRegExp)
     false
 
   # human readable file size
@@ -951,6 +960,34 @@ class App.Utils
     #
     path = if window.svgPolyfill then '' else 'assets/images/icons.svg'
     "<svg class=\"icon icon-#{name} #{className}\"><use xlink:href=\"#{path}#icon-#{name}\" /></svg>"
+
+  @fontIcon: (name, font, className = '') ->
+    @loadIconFont(font)
+    "<i class=\"icon #{className}\" data-font=\"#{font}\">#{String.fromCharCode('0x'+ name)}</i>"
+
+  @loadIconFont: (font) ->
+    el = $("[data-icon-font=\"#{font}\"]")
+    return if el.length # already loaded
+
+    el = $("<style data-icon-font=\"#{font}\">").appendTo('head')
+    woffUrl = "assets/icon-fonts/#{font}.woff"
+    css = """
+          @font-face {
+            font-family: '#{font}';
+            src: url('#{woffUrl}');
+            font-weight: normal;
+            font-style: normal;
+          }
+
+          [data-font="#{font}"] {
+            font-family: '#{font}';
+          }
+          """
+
+    el.text css
+
+  @loadIconFontInfo: (font, callback) ->
+    $.getJSON "assets/icon-fonts/#{font}.json", (data) -> callback(data.icons)
 
   @getScrollBarWidth: ->
     $outer = $('<div>').css(
@@ -1171,9 +1208,12 @@ class App.Utils
 
     html.find('img').each( (index) ->
       src = $(@).attr('src')
-      if !src.match(/^(data|cid):/i) # <img src="cid: ..."> may mean broken emails (see issue #2305)
-        base64 = App.Utils._htmlImage2DataUrl(@)
-        $(@).attr('src', base64)
+
+      # <img src="cid: ..."> or an empty src attribute may mean broken emails (see issue #2305 / #2701)
+      return if !src? or src.match(/^(data|cid):/i)
+
+      base64 = App.Utils._htmlImage2DataUrl(@)
+      $(@).attr('src', base64)
     )
     html.get(0).innerHTML
 
@@ -1184,3 +1224,104 @@ class App.Utils
     ctx = canvas.getContext('2d')
     ctx.drawImage(img, 0, 0)
     canvas.toDataURL('image/png')
+
+  @htmlImage2DataUrlAsyncInline: (html, callback) ->
+    html.find('img').each( (index) ->
+      element = $(@)
+      src = element.attr('src')
+
+      # <img src="cid: ..."> or an empty src attribute may mean broken emails (see issue #2305 / #2701)
+      return if !src? or src.match(/^(data|cid):/i)
+
+      App.Utils._htmlImage2DataUrlAsync(@, (data) ->
+        element.attr('src', data)
+        callback(element) if callback
+      )
+    )
+
+  # works asynchronously to make sure images are loaded before converting to base64
+  # output is passed to callback
+  @htmlImage2DataUrlAsync: (html, callback) ->
+    output = @_checkTypeOf("<div>#{html}</div>")
+
+    # coffeelint: disable=indentation
+    elems = output
+             .find('img')
+             .toArray()
+             .filter (elem) -> !elem.src.match(/^(data|cid):/i)
+    # coffeelint: enable=indentation
+
+    cacheOrDone = ->
+      if (nextElem = elems.pop())
+        App.Utils._htmlImage2DataUrlAsync(nextElem, (data) ->
+          $(nextElem).attr('src', data)
+          cacheOrDone()
+        )
+      else
+        callback(output[0].innerHTML)
+
+    cacheOrDone()
+
+  @_htmlImage2DataUrlAsync: (originalImage, callback) ->
+    imageCache = new Image()
+    imageCache.onload = ->
+      data = App.Utils._htmlImage2DataUrl(originalImage)
+      callback(data) if callback
+
+    imageCache.src = originalImage.src
+
+  @baseUrl: ->
+    fqdn      = App.Config.get('fqdn')
+    http_type = App.Config.get('http_type')
+    if !fqdn || fqdn is 'zammad.example.com'
+      url = window.location.origin
+    else
+      url = "#{http_type}://#{fqdn}"
+
+  @joinUrlComponents: (array...) ->
+    if Array.isArray(array[0])
+      array = array[0]
+
+    array
+      .filter (elem) ->
+        elem?
+      .join '/'
+
+  @clipboardHtmlIsWithText: (html) ->
+    if !html
+      return false
+
+    parsedHTML = jQuery(jQuery.parseHTML(html))
+
+    if !parsedHTML || !parsedHTML.text
+      return false
+
+    if parsedHTML.text().trim().length is 0
+      return false
+
+    true
+
+  @clipboardHtmlInsertPreperation: (htmlRaw, options) ->
+    if options.mode is 'textonly'
+      if !options.multiline
+        html = App.Utils.htmlRemoveTags(htmlRaw)
+      else
+        html = App.Utils.htmlRemoveRichtext(htmlRaw)
+    else
+      html = App.Utils.htmlCleanup(htmlRaw)
+
+    htmlString = html.html()
+
+    if !htmlString && html && html.text && html.text()
+      htmlString = App.Utils.text2html(html.text())
+
+    # as fallback, get text from htmlRaw
+    if !htmlString || htmlString == ''
+      parsedHTML = jQuery(jQuery.parseHTML(htmlRaw))
+      if parsedHTML
+        text = parsedHTML.text().trim()
+
+      if text
+        htmlString = App.Utils.text2html(text)
+
+    htmlString

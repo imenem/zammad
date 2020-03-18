@@ -7,7 +7,7 @@ namespace :zammad do
       namespace :websocket do
 
         desc 'Starts the websocket server'
-        task :start, [:port] do |_task, args|
+        task :start, [:port] do |_task, args| # rubocop:disable Rails/RakeEnvironment
 
           port    = args.fetch(:port, '6042')
           command = [
@@ -20,7 +20,7 @@ namespace :zammad do
             port
           ]
 
-          stdout, stderr, status = Open3.capture3(*command)
+          _stdout, stderr, status = Open3.capture3(*command)
 
           next if status.success?
 

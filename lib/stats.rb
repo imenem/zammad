@@ -15,15 +15,6 @@ returns
 
   def self.generate
 
-    backends = [
-      Stats::TicketChannelDistribution,
-      Stats::TicketInProcess,
-      Stats::TicketLoadMeasure,
-      Stats::TicketEscalation,
-      Stats::TicketReopen,
-      Stats::TicketWaitingTime,
-    ]
-
     # generate stats per agent
     users = User.with_permissions('ticket.agent')
     agent_count = 0
@@ -34,7 +25,24 @@ returns
 
       agent_count += 1
       data = {}
-      backends.each do |backend|
+
+      backends = Setting.where(area: 'Dashboard::Stats')
+      if backends.blank?
+        raise "No settings with area 'Dashboard::Stats' defined"
+      end
+
+      backends.each do |stats_item|
+        # additional permission check
+        next if stats_item.preferences[:permission] && !user.permissions?(stats_item.preferences[:permission])
+
+        backend = stats_item.state_current[:value]
+        if !backend
+          raise 'Dashboard::Stats backend ' + stats_item.name + ' is not defined'
+        end
+
+        require_dependency backend.to_filename
+        backend = backend.constantize
+
         data[backend] = backend.generate(user)
       end
       user_result[user.id] = data
@@ -55,7 +63,7 @@ returns
 
     # generate average param and icon state
     backend_average_sum.each do |backend_model_average, result|
-      average = ( result.to_f / agent_count.to_f ).round(1)
+      average = ( result.to_f / agent_count ).round(1)
       user_result.each do |user_id, data|
         next if !data[backend_model_average]
         next if !data[backend_model_average].key?(:used_for_average)
@@ -74,14 +82,14 @@ returns
       end
       state_store = StatsStore.sync(
         object: 'User',
-        o_id: user_id,
-        key: 'dashboard',
-        data: data_for_user,
+        o_id:   user_id,
+        key:    'dashboard',
+        data:   data_for_user,
       )
 
       message = {
         event: 'resetCollection',
-        data: {
+        data:  {
           state_store.class.to_app_model => [state_store],
         },
       }

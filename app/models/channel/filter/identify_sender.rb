@@ -38,9 +38,9 @@ module Channel::Filter::IdentifySender
               next if EmailAddress.find_by(email: item.address.downcase)
 
               customer_user = user_create(
-                login: item.address,
+                login:     item.address,
                 firstname: item.display_name,
-                email: item.address,
+                email:     item.address,
               )
               break
             end
@@ -54,10 +54,10 @@ module Channel::Filter::IdentifySender
     # take regular from as customer
     if !customer_user
       customer_user = user_create(
-        login: mail[ 'x-zammad-customer-login'.to_sym ] || mail[ 'x-zammad-customer-email'.to_sym ] || mail[:from_email],
+        login:     mail[ 'x-zammad-customer-login'.to_sym ] || mail[ 'x-zammad-customer-email'.to_sym ] || mail[:from_email],
         firstname: mail[ 'x-zammad-customer-firstname'.to_sym ] || mail[:from_display_name],
-        lastname: mail[ 'x-zammad-customer-lastname'.to_sym ],
-        email: mail[ 'x-zammad-customer-email'.to_sym ] || mail[:from_email],
+        lastname:  mail[ 'x-zammad-customer-lastname'.to_sym ],
+        email:     mail[ 'x-zammad-customer-email'.to_sym ] || mail[:from_email],
       )
     end
 
@@ -77,10 +77,10 @@ module Channel::Filter::IdentifySender
     end
     if !session_user
       session_user = user_create(
-        login: mail[:from_email],
+        login:     mail[:from_email],
         firstname: mail[:from_display_name],
-        lastname: '',
-        email: mail[:from_email],
+        lastname:  '',
+        email:     mail[:from_email],
       )
     end
     if session_user
@@ -94,7 +94,7 @@ module Channel::Filter::IdentifySender
   def self.create_recipients(mail)
     max_count = 40
     current_count = 0
-    ['raw-to', 'raw-cc'].each do |item|
+    %w[raw-to raw-cc].each do |item|
       next if mail[item.to_sym].blank?
 
       begin
@@ -102,21 +102,22 @@ module Channel::Filter::IdentifySender
         next if items.blank?
 
         items.each do |address_data|
-          email_address = address_data.address
+          email_address = sanitize_email(address_data.address)
           next if email_address.blank?
-          next if email_address !~ /@/
-          next if email_address.match?(/\s/)
+
+          email_address_validation = EmailAddressValidation.new(email_address)
+          next if !email_address_validation.valid_format?
 
           user_create(
             firstname: address_data.display_name,
-            lastname: '',
-            email: email_address,
+            lastname:  '',
+            email:     email_address,
           )
           current_count += 1
           return false if current_count == max_count
         end
       rescue => e
-        # parse not parseable fields by mail gem like
+        # parse not parsable fields by mail gem like
         #  - Max Kohl | [example.com] <kohl@example.com>
         #  - Max Kohl <max.kohl <max.kohl@example.com>
         Rails.logger.error 'ERROR: ' + e.inspect
@@ -131,14 +132,18 @@ module Channel::Filter::IdentifySender
           if recipient =~ /^(.+?)<(.+?)>/
             display_name = $1
           end
+
           next if address.blank?
-          next if address !~ /@/
-          next if address.match?(/\s/)
+
+          address = sanitize_email(address)
+
+          email_address_validation = EmailAddressValidation.new(address)
+          next if !email_address_validation.valid_format?
 
           user_create(
             firstname: display_name,
-            lastname: '',
-            email: address,
+            lastname:  '',
+            email:     address,
           )
           current_count += 1
           return false if current_count == max_count
@@ -161,18 +166,18 @@ module Channel::Filter::IdentifySender
 
   def self.populate_attributes!(attrs, **extras)
     if attrs[:email].match?(/\S\s+\S/) || attrs[:email].match?(/^<|>$/)
-      attrs[:preferences] = { mail_delivery_failed: true,
+      attrs[:preferences] = { mail_delivery_failed:        true,
                               mail_delivery_failed_reason: 'invalid email',
-                              mail_delivery_failed_data: Time.zone.now }
+                              mail_delivery_failed_data:   Time.zone.now }
     end
 
     attrs.merge!(
-      email: sanitize_email(attrs[:email]),
-      firstname: sanitize_name(attrs[:firstname]),
-      lastname: sanitize_name(attrs[:lastname]),
-      password: '',
-      active: true,
-      role_ids: extras[:role_ids] || Role.signup_role_ids,
+      email:         sanitize_email(attrs[:email]),
+      firstname:     sanitize_name(attrs[:firstname]),
+      lastname:      sanitize_name(attrs[:lastname]),
+      password:      '',
+      active:        true,
+      role_ids:      extras[:role_ids] || Role.signup_role_ids,
       updated_by_id: 1,
       created_by_id: 1
     )
@@ -194,10 +199,12 @@ module Channel::Filter::IdentifySender
     string.downcase
           .strip
           .delete('"')
+          .delete("'")
           .delete(' ')             # see https://github.com/zammad/zammad/issues/2254
           .sub(/^<|>$/, '')        # see https://github.com/zammad/zammad/issues/2254
           .sub(/\A'(.*)'\z/, '\1') # see https://github.com/zammad/zammad/issues/2154
           .gsub(/\s/, '')          # see https://github.com/zammad/zammad/issues/2198
+          .gsub(/\.\z/, '')
   end
 
 end

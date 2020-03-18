@@ -9,17 +9,16 @@ class ElasticsearchActiveTest < ActiveSupport::TestCase
 
     rebuild_searchindex
 
-    roles  = Role.where(name: 'Agent')
-    groups = Group.where(name: 'Users')
+    roles = Role.where(name: 'Agent')
 
     @agent = User.create!(
-      login: 'es-agent@example.com',
-      firstname: 'E',
-      lastname: 'S',
-      email: 'es-agent@example.com',
-      password: 'agentpw',
-      active: true,
-      roles: roles,
+      login:         'es-agent@example.com',
+      firstname:     'E',
+      lastname:      'S',
+      email:         'es-agent@example.com',
+      password:      'agentpw',
+      active:        true,
+      roles:         roles,
       updated_by_id: 1,
       created_by_id: 1,
     )
@@ -29,17 +28,17 @@ class ElasticsearchActiveTest < ActiveSupport::TestCase
     (1..6).each do |i|
       name = i.even? ? "Active-#{i}" : "Inactive-#{i}"
       User.create!(
-        login: "#{name}-customer#{i}@example.com",
-        firstname: 'ActiveTest',
-        lastname: name,
-        active: i.even?,
-        roles: roles,
+        login:         "#{name}-customer#{i}@example.com",
+        firstname:     'ActiveTest',
+        lastname:      name,
+        active:        i.even?,
+        roles:         roles,
         updated_by_id: 1,
         created_by_id: 1,
       )
       Organization.create!(
-        name: "TestOrg-#{name}",
-        active: i.even?,
+        name:          "TestOrg-#{name}",
+        active:        i.even?,
         updated_by_id: 1,
         created_by_id: 1,
       )
@@ -54,8 +53,8 @@ class ElasticsearchActiveTest < ActiveSupport::TestCase
   test 'active users appear before inactive users in search results' do
     result = User.search(
       current_user: @agent,
-      query: 'ActiveTest',
-      limit: 15,
+      query:        'ActiveTest',
+      limit:        15,
     )
     assert(result.present?, 'result should not be empty')
 
@@ -68,8 +67,8 @@ class ElasticsearchActiveTest < ActiveSupport::TestCase
   test 'active organizations appear before inactive organizations in search results' do
     result = Organization.search(
       current_user: @agent,
-      query: 'TestOrg',
-      limit: 15,
+      query:        'TestOrg',
+      limit:        15,
     )
     assert(result.present?, 'result should not be empty')
 
@@ -89,8 +88,8 @@ class ElasticsearchActiveTest < ActiveSupport::TestCase
 
     result = Ticket.search(
       current_user: User.find(1),
-      query: 'ticket',
-      limit: 15,
+      query:        'ticket',
+      limit:        15,
     )
     assert(result.present?, 'result should not be empty')
 
@@ -102,18 +101,18 @@ class ElasticsearchActiveTest < ActiveSupport::TestCase
   def ticket_setup
     result = Ticket.search(
       current_user: User.find(1),
-      query: 'ticket',
-      limit: 15,
+      query:        'ticket',
+      limit:        15,
     )
     return if result.present?
 
     (1..6).each do |i|
       Ticket.create!(
-        title: "Ticket-#{i}",
-        group: Group.lookup(name: 'Users'),
-        customer_id: 1,
-        state: Ticket::State.lookup(name: 'new'),
-        priority: Ticket::Priority.lookup(name: '2 normal'),
+        title:         "Ticket-#{i}",
+        group:         Group.lookup(name: 'Users'),
+        customer_id:   1,
+        state:         Ticket::State.lookup(name: 'new'),
+        priority:      Ticket::Priority.lookup(name: '2 normal'),
         updated_by_id: 1,
         created_by_id: 1,
       )

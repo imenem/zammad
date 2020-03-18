@@ -30,10 +30,20 @@ returns
       type = map[type]
     end
 
-    return if !user.preferences
-    return if !user.preferences['notification_config']
+    # this cache will optimize the preference catch performance
+    # because of the yaml deserialization its pretty slow
+    # on many tickets you we cache it.
+    user_preferences = Cache.get("NotificationFactory::Mailer.notification_settings::#{user.id}")
+    if user_preferences.blank?
+      user_preferences = user.preferences
 
-    matrix = user.preferences['notification_config']['matrix']
+      Cache.write("NotificationFactory::Mailer.notification_settings::#{user.id}", user_preferences, expires_in: 20.seconds)
+    end
+
+    return if !user_preferences
+    return if !user_preferences['notification_config']
+
+    matrix = user_preferences['notification_config']['matrix']
     return if !matrix
 
     owned_by_nobody = false
@@ -60,7 +70,7 @@ returns
 
     # check if group is in selected groups
     if !owned_by_me
-      selected_group_ids = user.preferences['notification_config']['group_ids']
+      selected_group_ids = user_preferences['notification_config']['group_ids']
       if selected_group_ids.is_a?(Array)
         hit = nil
         if selected_group_ids.blank?
@@ -90,20 +100,20 @@ returns
 
     if data['criteria']['owned_by_me'] && owned_by_me
       return {
-        user: user,
+        user:     user,
         channels: channels
       }
     end
     if data['criteria']['owned_by_nobody'] && owned_by_nobody
       return {
-        user: user,
+        user:     user,
         channels: channels
       }
     end
     return if !data['criteria']['no']
 
     {
-      user: user,
+      user:     user,
       channels: channels
     }
   end
@@ -123,6 +133,8 @@ returns
 =end
 
   def self.send(data)
+    raise Exceptions::UnprocessableEntity, "Unable to send mail to user with id #{data[:recipient][:id]} because there is no email available." if data[:recipient][:email].blank?
+
     sender = Setting.get('notification_sender')
     Rails.logger.info "Send notification to: #{data[:recipient][:email]} (from:#{sender}/subject:#{data[:subject]})"
 
@@ -133,17 +145,23 @@ returns
 
     # get active Email::Outbound Channel and send
     channel = Channel.find_by(area: 'Email::Notification', active: true)
+
+    if channel.blank?
+      Rails.logger.info "Can't find an active 'Email::Notification' channel. Canceling notification sending."
+      return false
+    end
+
     channel.deliver(
       {
         # in_reply_to: in_reply_to,
-        from: sender,
-        to: data[:recipient][:email],
-        subject: data[:subject],
-        message_id: data[:message_id],
-        references: data[:references],
-        body: data[:body],
+        from:         sender,
+        to:           data[:recipient][:email],
+        subject:      data[:subject],
+        message_id:   data[:message_id],
+        references:   data[:references],
+        body:         data[:body],
         content_type: content_type,
-        attachments: data[:attachments],
+        attachments:  data[:attachments],
       },
       true
     )
@@ -170,9 +188,9 @@ returns
 
     # get subject
     result = NotificationFactory::Mailer.template(
-      template: data[:template],
-      locale: data[:user][:preferences][:locale],
-      objects: data[:objects],
+      template:   data[:template],
+      locale:     data[:user][:preferences][:locale],
+      objects:    data[:objects],
       standalone: data[:standalone],
     )
 
@@ -187,13 +205,13 @@ returns
     end
 
     NotificationFactory::Mailer.send(
-      recipient: data[:user],
-      subject: result[:subject],
-      body: result[:body],
+      recipient:    data[:user],
+      subject:      result[:subject],
+      body:         result[:body],
       content_type: 'text/html',
-      message_id: data[:message_id],
-      references: data[:references],
-      attachments: data[:attachments],
+      message_id:   data[:message_id],
+      references:   data[:references],
+      attachments:  data[:attachments],
     )
   end
 
@@ -210,13 +228,13 @@ retunes
 =end
 
   def self.already_sent?(ticket, recipient, type)
-    result = ticket.history_get()
+    result = ticket.history_get
     count  = 0
     result.each do |item|
       next if item['type'] != 'notification'
       next if item['object'] != 'Ticket'
-      next if item['value_to'] !~ /#{recipient.email}/i
-      next if item['value_to'] !~ /#{type}/i
+      next if !item['value_to'].match?(/#{recipient.email}/i)
+      next if !item['value_to'].match?(/#{type}/i)
 
       count += 1
     end
@@ -228,6 +246,7 @@ retunes
   result = NotificationFactory::Mailer.template(
     template: 'password_reset',
     locale: 'en-us',
+    timezone: 'America/Santiago',
     objects:  {
       recipient: User.find(2),
     },
@@ -236,6 +255,7 @@ retunes
   result = NotificationFactory::Mailer.template(
     templateInline: "Invitation to \#{config.product_name} at \#{config.fqdn}",
     locale: 'en-us',
+    timezone: 'America/Santiago',
     objects:  {
       recipient: User.find(2),
     },
@@ -247,6 +267,7 @@ only raw subject/body
   result = NotificationFactory::Mailer.template(
     template: 'password_reset',
     locale: 'en-us',
+    timezone: 'America/Santiago',
     objects:  {
       recipient: User.find(2),
     },
@@ -266,31 +287,57 @@ returns
   def self.template(data)
 
     if data[:templateInline]
-      return NotificationFactory::Renderer.new(data[:objects], data[:locale], data[:templateInline], data[:quote]).render
+      return NotificationFactory::Renderer.new(
+        objects:  data[:objects],
+        locale:   data[:locale],
+        timezone: data[:timezone],
+        template: data[:templateInline],
+        escape:   data[:quote]
+      ).render
     end
 
     template = NotificationFactory.template_read(
-      locale: data[:locale] || Setting.get('locale_default') || 'en-us',
+      locale:   data[:locale] || Locale.default,
       template: data[:template],
-      format: 'html',
-      type: 'mailer',
+      format:   data[:format] || 'html',
+      type:     'mailer',
     )
 
-    message_subject = NotificationFactory::Renderer.new(data[:objects], data[:locale], template[:subject], false).render
-    message_body = NotificationFactory::Renderer.new(data[:objects], data[:locale], template[:body]).render
+    message_subject = NotificationFactory::Renderer.new(
+      objects:  data[:objects],
+      locale:   data[:locale],
+      timezone: data[:timezone],
+      template: template[:subject],
+      escape:   false
+    ).render
+
+    # strip off the extra newline at the end of the subject to avoid =0A suffixes (see #2726)
+    message_subject.chomp!
+
+    message_body = NotificationFactory::Renderer.new(
+      objects:  data[:objects],
+      locale:   data[:locale],
+      timezone: data[:timezone],
+      template: template[:body]
+    ).render
 
     if !data[:raw]
       application_template = NotificationFactory.application_template_read(
         format: 'html',
-        type: 'mailer',
+        type:   'mailer',
       )
       data[:objects][:message] = message_body
       data[:objects][:standalone] = data[:standalone]
-      message_body = NotificationFactory::Renderer.new(data[:objects], data[:locale], application_template).render
+      message_body = NotificationFactory::Renderer.new(
+        objects:  data[:objects],
+        locale:   data[:locale],
+        timezone: data[:timezone],
+        template: application_template
+      ).render
     end
     {
       subject: message_subject,
-      body: message_body,
+      body:    message_body,
     }
   end
 

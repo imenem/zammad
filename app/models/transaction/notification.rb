@@ -51,7 +51,7 @@ class Transaction::Notification
     recipients_reason = {}
 
     # loop through all users
-    possible_recipients = User.group_access(ticket.group_id, 'full').sort_by(&:login)
+    possible_recipients = possible_recipients_of_group(ticket.group_id)
 
     # apply owner
     if ticket.owner_id != 1
@@ -88,7 +88,6 @@ class Transaction::Notification
     end
 
     # send notifications
-    recipient_list = ''
     recipients_and_channels.each do |item|
       user = item[:user]
       channels = item[:channels]
@@ -112,15 +111,13 @@ class Transaction::Notification
         if !identifier || identifier == ''
           identifier = user.login
         end
-        already_notified = false
-        History.list('Ticket', ticket.id).each do |history|
-          next if history['type'] != 'notification'
-          next if history['value_to'] !~ /\(#{Regexp.escape(@item[:type])}:/
-          next if history['value_to'] !~ /#{Regexp.escape(identifier)}\(/
-          next if !history['created_at'].today?
 
-          already_notified = true
-        end
+        already_notified = History.where(
+          history_type_id:   History.type_lookup('notification').id,
+          history_object_id: History.object_lookup('Ticket').id,
+          o_id:              ticket.id
+        ).where('created_at > ?', Time.zone.now.beginning_of_day).where('value_to LIKE ?', "%#{identifier}(#{@item[:type]}:%").exists?
+
         next if already_notified
       end
 
@@ -151,18 +148,18 @@ class Transaction::Notification
         end
 
         OnlineNotification.add(
-          type: @item[:type],
-          object: 'Ticket',
-          o_id: ticket.id,
-          seen: seen,
+          type:          @item[:type],
+          object:        'Ticket',
+          o_id:          ticket.id,
+          seen:          seen,
           created_by_id: created_by_id,
-          user_id: user.id,
+          user_id:       user.id,
         )
         Rails.logger.debug { "sent ticket online notifiaction to agent (#{@item[:type]}/#{ticket.id}/#{user.email})" }
       end
 
-      # ignore email channel notificaiton and empty emails
-      if !channels['email'] || !user.email || user.email == ''
+      # ignore email channel notification and empty emails
+      if !channels['email'] || user.email.blank?
         add_recipient_list(ticket, user, used_channels, @item[:type])
         next
       end
@@ -197,18 +194,18 @@ class Transaction::Notification
         attachments = article.attachments_inline
       end
       NotificationFactory::Mailer.notification(
-        template: template,
-        user: user,
-        objects: {
-          ticket: ticket,
-          article: article,
-          recipient: user,
+        template:    template,
+        user:        user,
+        objects:     {
+          ticket:       ticket,
+          article:      article,
+          recipient:    user,
           current_user: current_user,
-          changes: changes,
-          reason: recipients_reason[user.id],
+          changes:      changes,
+          reason:       recipients_reason[user.id],
         },
-        message_id: "<notification.#{DateTime.current.to_s(:number)}.#{ticket.id}.#{user.id}.#{rand(999_999)}@#{Setting.get('fqdn')}>",
-        references: ticket.get_references,
+        message_id:  "<notification.#{DateTime.current.to_s(:number)}.#{ticket.id}.#{user.id}.#{rand(999_999)}@#{Setting.get('fqdn')}>",
+        references:  ticket.get_references,
         main_object: ticket,
         attachments: attachments,
       )
@@ -226,11 +223,11 @@ class Transaction::Notification
     end
     recipient_list = "#{identifier}(#{type}:#{channels.join(',')})"
     History.add(
-      o_id: ticket.id,
-      history_type: 'notification',
+      o_id:           ticket.id,
+      history_type:   'notification',
       history_object: 'Ticket',
-      value_to: recipient_list,
-      created_by_id: @item[:user_id] || 1
+      value_to:       recipient_list,
+      created_by_id:  @item[:user_id] || 1
     )
   end
 
@@ -238,11 +235,11 @@ class Transaction::Notification
 
     return {} if !@item[:changes]
 
-    locale = user.preferences[:locale] || Setting.get('locale_default') || 'en-us'
+    locale = user.locale
 
     # only show allowed attributes
     attribute_list = ObjectManager::Attribute.by_object_as_hash('Ticket', user)
-    #puts "AL #{attribute_list.inspect}"
+
     user_related_changes = {}
     @item[:changes].each do |key, value|
 
@@ -271,7 +268,7 @@ class Transaction::Notification
         changes[attribute_name] = value
       end
 
-      # if changed item is an _id field/reference, do an lookup for the realy values
+      # if changed item is an _id field/reference, look up the real values
       value_id  = []
       value_str = [ value[0], value[1] ]
       if key.to_s[-3, 3] == '_id'
@@ -303,7 +300,7 @@ class Transaction::Notification
         end
       end
 
-      # check if we have an dedcated display name for it
+      # check if we have a dedicated display name for it
       display = attribute_name
       if object_manager_attribute && object_manager_attribute[:display]
 
@@ -348,4 +345,12 @@ class Transaction::Notification
     )
   end
 
+  def possible_recipients_of_group(group_id)
+    cache = Cache.get("Transaction::Notification.group_access.full::#{group_id}")
+    return cache if cache
+
+    possible_recipients = User.group_access(group_id, 'full').sort_by(&:login)
+    Cache.write("Transaction::Notification.group_access.full::#{group_id}", possible_recipients, expires_in: 20.seconds)
+    possible_recipients
+  end
 end

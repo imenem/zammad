@@ -21,12 +21,12 @@ RSpec.describe Ticket::Overviews do
       condition = {
         'article.from' => {
           operator: 'contains',
-          value: 'blubselector.de',
+          value:    'blubselector.de',
         },
       }
       overview = create(:overview, condition: condition)
 
-      result = Ticket::Overviews.index(user)
+      result = described_class.index(user)
       result = result.select { |x| x[:overview][:name] == overview.name }
 
       expect(result.count).to be == 1

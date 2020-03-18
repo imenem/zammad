@@ -60,7 +60,7 @@ class String
 =end
 
   def to_filename
-    camel_cased_word = "#{self}" # rubocop:disable Style/UnneededInterpolation
+    camel_cased_word = dup
     camel_cased_word.gsub(/::/, '/')
                     .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
                     .gsub(/([a-z\d])([A-Z])/, '\1_\2')
@@ -77,7 +77,7 @@ class String
 =end
 
   def to_classname
-    camel_cased_word = "#{self}" # rubocop:disable Style/UnneededInterpolation
+    camel_cased_word = dup
     camel_cased_word.gsub!(/\.rb$/, '')
     camel_cased_word.split('/').map(&:camelize).join('::')
   end
@@ -109,7 +109,7 @@ class String
 =end
 
   def html2text(string_only = false, strict = false)
-    string = "#{self}" # rubocop:disable Style/UnneededInterpolation
+    string = dup
 
     # in case of invalid encoding, strip invalid chars
     # see also test/data/mail/mail021.box
@@ -153,19 +153,20 @@ class String
           text_compare.downcase!
           text_compare.sub!(%r{/$}, '')
         end
-        placeholder = if link_compare.present? && text_compare.blank?
-                        link
-                      elsif link_compare.blank? && text_compare.present?
-                        text
-                      elsif link_compare && link_compare =~ /^mailto/i
-                        text
-                      elsif link_compare.present? && text_compare.present? && (link_compare == text_compare || link_compare == "mailto:#{text}".downcase || link_compare == "http://#{text}".downcase)
-                        "######LINKEXT:#{link}/TEXT:#{text}######"
-                      elsif text !~ /^http/
-                        "#{text} (######LINKRAW:#{link}######)"
-                      else
-                        "#{link} (######LINKRAW:#{text}######)"
-                      end
+
+        if link_compare.present? && text_compare.blank?
+          link
+        elsif link_compare.blank? && text_compare.present?
+          text
+        elsif link_compare && link_compare =~ /^mailto/i
+          text
+        elsif link_compare.present? && text_compare.present? && (link_compare == text_compare || link_compare == "mailto:#{text}".downcase || link_compare == "http://#{text}".downcase)
+          "######LINKEXT:#{link}/TEXT:#{text}######"
+        elsif text !~ /^http/
+          "#{text} (######LINKRAW:#{link}######)"
+        else
+          "#{link} (######LINKRAW:#{text}######)"
+        end
       end
     end
 
@@ -180,10 +181,10 @@ class String
 
     # pre/code handling 1/2
     string.gsub!(%r{<pre>(.+?)</pre>}m) do |placeholder|
-      placeholder = placeholder.gsub(/\n/, '###BR###')
+      placeholder.gsub(/\n/, '###BR###')
     end
     string.gsub!(%r{<code>(.+?)</code>}m) do |placeholder|
-      placeholder = placeholder.gsub(/\n/, '###BR###')
+      placeholder.gsub(/\n/, '###BR###')
     end
 
     # insert spaces on [A-z]\n[A-z]
@@ -231,11 +232,12 @@ class String
         if content.match?(/^www/i)
           content = "http://#{content}"
         end
-        placeholder = if content =~ /^(http|https|ftp|tel)/i
-                        "#{pre}######LINKRAW:#{content}#######{post}"
-                      else
-                        "#{pre}#{content}#{post}"
-                      end
+
+        if content =~ /^(http|https|ftp|tel)/i
+          "#{pre}######LINKRAW:#{content}#######{post}"
+        else
+          "#{pre}#{content}#{post}"
+        end
       end
     end
 
@@ -282,6 +284,7 @@ class String
         chr_orig
       end
     end
+    string = string.utf8_encode(fallback: :read_as_sanitized_binary)
 
     # remove tailing empty spaces
     string.gsub!(/[[:blank:]]+$/, '')
@@ -319,7 +322,7 @@ class String
 =end
 
   def html2html_strict
-    string = "#{self}" # rubocop:disable Style/UnneededInterpolation
+    string = dup
     string = HtmlSanitizer.cleanup_replace_tags(string)
     string = HtmlSanitizer.strict(string, true).strip
     string = HtmlSanitizer.cleanup(string).strip
@@ -374,7 +377,7 @@ class String
       ]
       map.each do |regexp|
         string.sub!(/#{regexp}/m) do |placeholder|
-          placeholder = "#{marker}#{placeholder}"
+          "#{marker}#{placeholder}"
         end
       end
       return string
@@ -388,7 +391,7 @@ class String
 
     # search for signature separator "--\n"
     string.sub!(/^\s{0,2}--\s{0,2}$/) do |placeholder|
-      placeholder = "#{marker}#{placeholder}"
+      "#{marker}#{placeholder}"
     end
 
     map = {}
@@ -444,10 +447,8 @@ class String
     #map['word-en-de'] = "[^#{marker}].{1,250}\s(wrote|schrieb):"
 
     map.each_value do |regexp|
-      begin
-        string.sub!(/#{regexp}/) do |placeholder|
-          placeholder = "#{marker}#{placeholder}"
-        end
+      string.sub!(/#{regexp}/) do |placeholder|
+        "#{marker}#{placeholder}"
       rescue
         # regexp was not possible because of some string encoding issue, use next
         Rails.logger.debug { "Invalid string/charset combination with regexp #{regexp} in string" }
@@ -494,11 +495,11 @@ class String
 
     # try to find valid encodings of string
     viable_encodings.each do |enc|
-      begin
-        return encode!('utf-8', enc)
-      rescue EncodingError => e
-        Rails.logger.error { e.inspect }
-      end
+
+      return encode!('utf-8', enc)
+    rescue EncodingError => e
+      Rails.logger.error { e.inspect }
+
     end
 
     case options[:fallback]

@@ -168,6 +168,8 @@ class State
     App.Setting.get('ldap_integration')
 
 class ConnectionWizard extends App.WizardModal
+  className: 'modal fade modal--large'
+
   wizardConfig: {}
   slideMethod:
     'js-bind': 'bindShow'
@@ -351,7 +353,7 @@ class ConnectionWizard extends App.WizardModal
           @showAlert('js-bind', 'Unable to retrive group information, please check your bind user permissions.')
           return
 
-        # update config if successfull
+        # update config if successful
         for key, value of params
           @wizardConfig[key] = value
 

@@ -2,13 +2,11 @@ require 'browser_test_helper'
 
 class AdminRoleTest < TestCase
   def test_role_device
-    name = "some role #{rand(99_999_999)}"
-
     @browser = browser_instance
     login(
       username: 'master@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
     tasks_close_all()
 
@@ -21,11 +19,11 @@ class AdminRoleTest < TestCase
 
     user_create(
       data: {
-        login: login,
+        login:     login,
         firstname: firstname,
-        lastname: lastname,
-        email: email,
-        password: password,
+        lastname:  lastname,
+        email:     email,
+        password:  password,
       },
     )
 
@@ -34,11 +32,11 @@ class AdminRoleTest < TestCase
       data: {
         name:              name,
         default_at_signup: false,
-        permission: [
+        permission:        [
           'admin.group',
           'user_preferences.device',
         ],
-        member: [login],
+        member:            [login],
       }
     )
 
@@ -47,33 +45,33 @@ class AdminRoleTest < TestCase
     login(
       username: email,
       password: password,
-      url: browser_url,
+      url:      browser_url,
     )
     tasks_close_all()
     click(css: 'a[href="#current_user"]')
     click(css: 'a[href="#profile"]')
     match(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Password',
     )
     match(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Language',
     )
     match_not(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Notifications',
     )
     match_not(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Calendar',
     )
     match_not(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Token Access',
     )
     match(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Devices',
     )
 
@@ -81,7 +79,7 @@ class AdminRoleTest < TestCase
     login(
       username: 'master@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
     role_edit(
       data: {
@@ -94,33 +92,33 @@ class AdminRoleTest < TestCase
     login(
       username: email,
       password: password,
-      url: browser_url,
+      url:      browser_url,
     )
     tasks_close_all()
     click(css: 'a[href="#current_user"]')
     click(css: 'a[href="#profile"]')
     match(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Password',
     )
     match(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Language',
     )
     match_not(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Notifications',
     )
     match_not(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Calendar',
     )
     match_not(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Token Access',
     )
     match_not(
-      css: '.content .NavBarProfile',
+      css:   '.content .NavBarProfile',
       value: 'Devices',
     )
   end
@@ -132,7 +130,7 @@ class AdminRoleTest < TestCase
     login(
       username: 'agent1@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
 
     # check if admin exists
@@ -143,19 +141,19 @@ class AdminRoleTest < TestCase
     login(
       username: 'master@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
     tasks_close_all()
 
     role_edit(
       data: {
-        name:   'Agent',
-        active: true,
+        name:       'Agent',
+        active:     true,
         permission: {
-          'admin.user' => true,
-          'chat.agent' => true,
-          'cti.agent' => true,
-          'ticket.agent' => true,
+          'admin.user'       => true,
+          'chat.agent'       => true,
+          'cti.agent'        => true,
+          'ticket.agent'     => true,
           'user_preferences' => true,
         },
       }
@@ -166,7 +164,7 @@ class AdminRoleTest < TestCase
     login(
       username: 'agent1@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
     tasks_close_all()
 
@@ -187,9 +185,9 @@ class AdminRoleTest < TestCase
     ticket_create(
       data: {
         customer: user_email,
-        group: 'Users',
-        title: 'some changes',
-        body: 'some body 123äöü - admin.user',
+        group:    'Users',
+        title:    'some changes',
+        body:     'some body 123äöü - admin.user',
       },
     )
 
@@ -198,19 +196,19 @@ class AdminRoleTest < TestCase
     login(
       username: 'master@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
     tasks_close_all()
 
     role_edit(
       data: {
-        name:   'Agent',
-        active: true,
+        name:       'Agent',
+        active:     true,
         permission: {
-          'admin.user' => false,
-          'chat.agent' => true,
-          'cti.agent' => true,
-          'ticket.agent' => true,
+          'admin.user'       => false,
+          'chat.agent'       => true,
+          'cti.agent'        => true,
+          'ticket.agent'     => true,
           'user_preferences' => true,
         },
       }
@@ -220,7 +218,7 @@ class AdminRoleTest < TestCase
     login(
       username: 'agent1@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
 
     # check if admin exists
@@ -236,7 +234,7 @@ class AdminRoleTest < TestCase
     login(
       username: 'master@example.com',
       password: 'test',
-      url: browser_url,
+      url:      browser_url,
     )
     tasks_close_all()
 

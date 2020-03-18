@@ -1,9 +1,10 @@
 class App.Controller extends Spine.Controller
   @include App.LogInclude
+  @include App.RenderScreen
 
   constructor: (params) ->
 
-    # unbind old bindlings
+    # unbind old bindings
     if params && params.el && params.el.unbind
       params.el.unbind()
 
@@ -51,6 +52,14 @@ class App.Controller extends Spine.Controller
       @controllerId
     )
 
+  one: (event, callback) =>
+    App.Event.bind(
+      event
+      callback
+      @controllerId
+      true
+    )
+
   unbind: (event, callback) =>
     App.Event.unbind(
       event
@@ -74,14 +83,25 @@ class App.Controller extends Spine.Controller
     App.Event.unbindLevel(@controllerId)
     App.Delay.clearLevel(@controllerId)
     App.Interval.clearLevel(@controllerId)
-    if @ajaxCalls
-      for callId in @ajaxCalls
-        App.Ajax.abort(callId)
+    @abortAjaxCalls()
 
+  abortAjaxCalls: =>
+    if !@ajaxCalls
+      return
+
+    idsToCancel = @ajaxCalls
+
+    @ajaxCalls = []
+
+    for callId in idsToCancel
+      App.Ajax.abort(callId)
+
+  # release Spine's event handling
   release: ->
-    # release custom bindings after it got removed from dom
+    @off()
+    @stopListening()
 
-  # add @title methode to set title
+  # add @title method to set title
   title: (name, translate = false) ->
 #    $('html head title').html(@Config.get(product_name) + ' - ' + App.i18n.translateInline(name))
     title = name
@@ -103,18 +123,18 @@ class App.Controller extends Spine.Controller
     App.Interval.reset()
     App.WebSocket.close(force: true)
 
-  # add @notify methode to create notification
+  # add @notify method to create notification
   notify: (data) ->
     App.Event.trigger 'notify', data
 
-  # add @notifyDesktop methode to create desktop notification
+  # add @notifyDesktop method to create desktop notification
   notifyDesktop: (data) ->
     App.Event.trigger 'notifyDesktop', data
 
-  # add @navupdate methode to update navigation
+  # add @navupdate method to update navigation
   navupdate: (url, force = false) ->
 
-    # ignore navupdate untill #clues are gone
+    # ignore navupdate until #clues are gone
     return if !force && window.location.hash is '#clues'
 
     App.Event.trigger 'navupdate', url
@@ -239,11 +259,7 @@ class App.Controller extends Spine.Controller
     false
 
   permissionCheck: (key) ->
-    userId = App.Session.get('id')
-    return false if !userId
-    user = App.User.findNative(userId)
-    return false if !user
-    user.permission(key)
+    App.User.current()?.permission(key)
 
   authenticateCheckRedirect: ->
     return true if @authenticateCheck()
@@ -330,7 +346,7 @@ class App.Controller extends Spine.Controller
   stopPropagation: (e) ->
     e.stopPropagation()
 
-  preventDefaultAndstopPropagation: (e) ->
+  preventDefaultAndStopPropagation: (e) ->
     e.preventDefault()
     e.stopPropagation()
 
@@ -348,22 +364,6 @@ class App.Controller extends Spine.Controller
   stopLoading: =>
     return if !@initLoadingDoneDelay
     @clearDelay(@initLoadingDoneDelay)
-
-  renderScreenSuccess: (data) ->
-    App.TaskManager.touch(@taskKey) if @taskKey
-    (data.el || @).html App.view('generic/error/success')(data)
-
-  renderScreenError: (data) ->
-    App.TaskManager.touch(@taskKey) if @taskKey
-    (data.el || @).html App.view('generic/error/generic')(data)
-
-  renderScreenNotFound: (data) ->
-    App.TaskManager.touch(@taskKey) if @taskKey
-    (data.el || @).html App.view('generic/error/not_found')(data)
-
-  renderScreenUnauthorized: (data) ->
-    App.TaskManager.touch(@taskKey) if @taskKey
-    (data.el || @).html App.view('generic/error/unauthorized')(data)
 
   locationVerify: (e) =>
     newLocation = $(e.currentTarget).attr 'href'
@@ -452,6 +452,7 @@ class App.ControllerModal extends App.Controller
   keyboard: true
   large: false
   small: false
+  veryLarge: false
   head: '?'
   autoFocusOnFirstInput: true
   container: null
@@ -462,6 +463,7 @@ class App.ControllerModal extends App.Controller
   buttonCancel: false
   buttonCancelClass: 'btn--text btn--subtle'
   buttonSubmit: true
+  includeForm: true
   headPrefix: ''
   shown: true
   closeOnAnyClick: false
@@ -526,6 +528,7 @@ class App.ControllerModal extends App.Controller
       buttonClass:       @buttonClass
       centerButtons:     @centerButtons
       leftButtons:       @leftButtons
+      includeForm:       @includeForm
     ))
     modal.find('.modal-body').html(content)
     if !@initRenderingDone
@@ -564,18 +567,19 @@ class App.ControllerModal extends App.Controller
     if @small
       @el.addClass('modal--small')
 
-    @el.modal(
-      keyboard:  @keyboard
-      show:      true
-      backdrop:  @backdrop
-      container: @container
-    ).on(
-      'show.bs.modal':   @localOnShow
-      'shown.bs.modal':  @localOnShown
-      'hide.bs.modal':   @localOnClose
-      'hidden.bs.modal': @localOnClosed
-      'dismiss.bs.modal': @localOnCancel
-    )
+    @el
+      .on(
+        'show.bs.modal':   @localOnShow
+        'shown.bs.modal':  @localOnShown
+        'hide.bs.modal':   @localOnClose
+        'hidden.bs.modal': @localOnClosed
+        'dismiss.bs.modal': @localOnCancel
+      ).modal(
+        keyboard:  @keyboard
+        show:      true
+        backdrop:  @backdrop
+        container: @container
+      )
 
     if @closeOnAnyClick
       @el.on('click', =>
@@ -593,6 +597,16 @@ class App.ControllerModal extends App.Controller
       return @formParam(@container.find('.modal form'))
     return @formParam(@$('.modal form'))
 
+  showAlert: (message, suffix = 'danger') ->
+    alert = $('<div>')
+      .addClass("alert alert--#{suffix}")
+      .text(message)
+
+    @$('.modal-alerts-container').html(alert)
+
+  clearAlerts: ->
+    @$('.modal-alerts-container').empty()
+
   localOnShow: (e) =>
     @onShow(e)
 
@@ -604,7 +618,17 @@ class App.ControllerModal extends App.Controller
 
   onShown: (e) =>
     if @autoFocusOnFirstInput
-      @$('input:not([disabled]):not([type="hidden"]):not(".btn"), textarea').first().focus()
+
+      # select generated form
+      form = @$('.form-group').first()
+
+      # if not exists, use whole @el
+      if !form.get(0)
+        form = @el
+
+      # focus first input, select or textarea
+      form.find('input:not([disabled]):not([type="hidden"]):not(".btn"), select:not([disabled]), textarea:not([disabled])').first().focus()
+
     @initalFormParams = @formParams()
 
   localOnClose: (e) =>
@@ -641,6 +665,7 @@ class App.ControllerModal extends App.Controller
   submit: (e) =>
     e.stopPropagation()
     e.preventDefault()
+    @clearAlerts()
     @onSubmit(e)
 
 class App.SessionMessage extends App.ControllerModal

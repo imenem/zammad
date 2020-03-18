@@ -4,6 +4,8 @@ require 'http/uri'
 
 class TwitterSync
 
+  STATUS_URL_TEMPLATE = 'https://twitter.com/_/status/%s'.freeze
+
   attr_accessor :client
 
   def initialize(auth, payload = nil)
@@ -47,8 +49,8 @@ class TwitterSync
     if auth
       user = User.find(auth.user_id)
       map = {
-        note: 'description',
-        web: 'website',
+        note:    'description',
+        web:     'website',
         address: 'location',
       }
 
@@ -76,11 +78,11 @@ class TwitterSync
 
     if user_data[:image_source]
       avatar = Avatar.add(
-        object: 'User',
-        o_id: user.id,
-        url: user_data[:image_source],
-        source: 'twitter',
-        deletable: true,
+        object:        'User',
+        o_id:          user.id,
+        url:           user_data[:image_source],
+        source:        'twitter',
+        deletable:     true,
         updated_by_id: user.id,
         created_by_id: user.id,
       )
@@ -170,7 +172,7 @@ class TwitterSync
       state:       state,
       priority:    Ticket::Priority.find_by(default_create: true),
       preferences: {
-        channel_id: channel.id,
+        channel_id:          channel.id,
         channel_screen_name: channel.options['user']['screen_name'],
       },
     )
@@ -190,7 +192,6 @@ class TwitterSync
     message_id = nil
     article_type = nil
     in_reply_to = nil
-    twitter_preferences = {}
     attachments = []
 
     if item['type'] == 'message_create'
@@ -213,15 +214,28 @@ class TwitterSync
       sender_screen_name = to_user_webhook_data(item['message_create']['sender_id'])['screen_name']
       to = "@#{recipient_screen_name}"
       from = "@#{sender_screen_name}"
+
       twitter_preferences = {
-        created_at: item['created_timestamp'],
-        recipient_id: item['message_create']['target']['recipient_id'],
+        created_at:            item['created_timestamp'],
+        recipient_id:          item['message_create']['target']['recipient_id'],
         recipient_screen_name: recipient_screen_name,
-        sender_id: item['message_create']['sender_id'],
-        sender_screen_name: sender_screen_name,
-        app_id: app['app_id'],
-        app_name: app['app_name'],
+        sender_id:             item['message_create']['sender_id'],
+        sender_screen_name:    sender_screen_name,
+        app_id:                app['app_id'],
+        app_name:              app['app_name'],
       }
+
+      article_preferences = {
+        twitter: self.class.preferences_cleanup(twitter_preferences),
+        links:   [
+          {
+            url:    "https://twitter.com/messages/#{twitter_preferences[:recipient_id]}-#{twitter_preferences[:sender_id]}",
+            target: '_blank',
+            name:   'on Twitter',
+          },
+        ],
+      }
+
     elsif item['text'].present?
       message_id = item['id']
       text = item['text']
@@ -265,7 +279,7 @@ class TwitterSync
 
           attachment = {
             filename: url.sub(%r{^.*/(.+?)$}, '\1'),
-            content: result.body,
+            content:  result.body,
 
           }
           attachments.push attachment
@@ -275,16 +289,27 @@ class TwitterSync
       in_reply_to = item['in_reply_to_status_id']
 
       twitter_preferences = {
-        mention_ids: mention_ids,
-        geo: item['geo'],
-        retweeted: item['retweeted'],
-        possibly_sensitive: item['possibly_sensitive'],
+        mention_ids:         mention_ids,
+        geo:                 item['geo'],
+        retweeted:           item['retweeted'],
+        possibly_sensitive:  item['possibly_sensitive'],
         in_reply_to_user_id: item['in_reply_to_user_id'],
-        place: item['place'],
-        retweet_count: item['retweet_count'],
-        source: item['source'],
-        favorited: item['favorited'],
-        truncated: item['truncated'],
+        place:               item['place'],
+        retweet_count:       item['retweet_count'],
+        source:              item['source'],
+        favorited:           item['favorited'],
+        truncated:           item['truncated'],
+      }
+
+      article_preferences = {
+        twitter: self.class.preferences_cleanup(twitter_preferences),
+        links:   [
+          {
+            url:    STATUS_URL_TEMPLATE % item['id'],
+            target: '_blank',
+            name:   'on Twitter',
+          },
+        ],
       }
 
     else
@@ -299,17 +324,6 @@ class TwitterSync
       ticket.state = ticket_state
       ticket.save!
     end
-
-    article_preferences = {
-      twitter: self.class.preferences_cleanup(twitter_preferences),
-      links: [
-        {
-          url: "https://twitter.com/statuses/#{item['id']}",
-          target: '_blank',
-          name: 'on Twitter',
-        },
-      ],
-    }
 
     article = Ticket::Article.create!(
       from:        from,
@@ -326,10 +340,10 @@ class TwitterSync
 
     attachments.each do |attachment|
       Store.add(
-        object: 'Ticket::Article',
-        o_id: article.id,
-        data: attachment[:content],
-        filename: attachment[:filename],
+        object:      'Ticket::Article',
+        o_id:        article.id,
+        data:        attachment[:content],
+        filename:    attachment[:filename],
         preferences: {},
       )
     end
@@ -345,10 +359,6 @@ class TwitterSync
 
     # import tweet
     to = nil
-    from = nil
-    article_type = nil
-    in_reply_to = nil
-    twitter_preferences = {}
     raise "Unknown tweet type '#{tweet.class}'" if tweet.class != Twitter::Tweet
 
     article_type = 'twitter status'
@@ -366,16 +376,16 @@ class TwitterSync
     in_reply_to = tweet.in_reply_to_status_id
 
     twitter_preferences = {
-      mention_ids: mention_ids,
-      geo: tweet.geo,
-      retweeted: tweet.retweeted?,
-      possibly_sensitive: tweet.possibly_sensitive?,
+      mention_ids:         mention_ids,
+      geo:                 tweet.geo,
+      retweeted:           tweet.retweeted?,
+      possibly_sensitive:  tweet.possibly_sensitive?,
       in_reply_to_user_id: tweet.in_reply_to_user_id,
-      place: tweet.place,
-      retweet_count: tweet.retweet_count,
-      source: tweet.source,
-      favorited: tweet.favorited?,
-      truncated: tweet.truncated?,
+      place:               tweet.place,
+      retweet_count:       tweet.retweet_count,
+      source:              tweet.source,
+      favorited:           tweet.favorited?,
+      truncated:           tweet.truncated?,
     }
 
     UserInfo.current_user_id = user.id
@@ -389,11 +399,11 @@ class TwitterSync
 
     article_preferences = {
       twitter: self.class.preferences_cleanup(twitter_preferences),
-      links: [
+      links:   [
         {
-          url: "https://twitter.com/statuses/#{tweet.id}",
+          url:    STATUS_URL_TEMPLATE % tweet.id,
           target: '_blank',
-          name: 'on Twitter',
+          name:   'on Twitter',
         },
       ],
     }
@@ -448,7 +458,7 @@ class TwitterSync
 
 =begin
 
-create a tweet ot direct message from an article
+create a tweet or direct message from an article
 
 =end
 
@@ -470,9 +480,9 @@ create a tweet ot direct message from an article
 
       data = {
         event: {
-          type: 'message_create',
+          type:           'message_create',
           message_create: {
-            target: {
+            target:       {
               recipient_id: authorization.uid,
             },
             message_data: {
@@ -488,6 +498,12 @@ create a tweet ot direct message from an article
 
       Rails.logger.debug { 'Create tweet from article...' }
 
+      # rubocop:disable Style/AsciiComments
+      # workaround for https://github.com/sferik/twitter/issues/677
+      # https://github.com/zammad/zammad/issues/2873 - unable to post
+      # tweets with * - replace `*` with the wide-asterisk `＊`.
+      # rubocop:enable Style/AsciiComments
+      article[:body].tr!('*', '＊') if article[:body].present?
       tweet = @client.update(
         article[:body],
         {
@@ -504,7 +520,6 @@ create a tweet ot direct message from an article
 
   def get_state(channel, tweet, ticket = nil)
 
-    user_id = nil
     user_id = if tweet.is_a?(Hash)
                 if tweet['user'] && tweet['user']['id']
                   tweet['user']['id']
@@ -564,7 +579,7 @@ create a tweet ot direct message from an article
     twitter: twitter_preferences,
     links: [
       {
-        url: 'https://twitter.com/statuses/123',
+        url: 'https://twitter.com/_/status/123',
         target: '_blank',
         name: 'on Twitter',
       },
@@ -577,7 +592,7 @@ or
     twitter: TwitterSync.preferences_cleanup(twitter_preferences),
     links: [
       {
-        url: 'https://twitter.com/statuses/123',
+        url: 'https://twitter.com/_/status/123',
         target: '_blank',
         name: 'on Twitter',
       },
@@ -703,7 +718,7 @@ process webhook messages from twitter
           channel.options[:sync][:search].each do |local_search|
             next if local_search[:term].blank?
             next if local_search[:group_id].blank?
-            next if item['text'] !~ /#{Regexp.quote(local_search[:term])}/i
+            next if !item['text'].match?(/#{Regexp.quote(local_search[:term])}/i)
 
             group_id = local_search[:group_id]
             break
@@ -792,8 +807,8 @@ download public media file from twitter
     if auth
       user = User.find(auth.user_id)
       map = {
-        note: 'description',
-        web: 'url',
+        note:    'description',
+        web:     'url',
         address: 'location',
       }
 
@@ -821,11 +836,11 @@ download public media file from twitter
 
     if user_data[:image_source].present?
       avatar = Avatar.add(
-        object: 'User',
-        o_id: user.id,
-        url: user_data[:image_source],
-        source: 'twitter',
-        deletable: true,
+        object:        'User',
+        o_id:          user.id,
+        url:           user_data[:image_source],
+        source:        'twitter',
+        deletable:     true,
         updated_by_id: user.id,
         created_by_id: user.id,
       )
@@ -914,11 +929,11 @@ get all webhooks
 delete a webhooks
 
   client = TwitterSync.new
-  webhook_delete(webhook_id)
+  webhook_delete(webhook_id, env_name)
 
 =end
 
-  def webhook_delete(webhook_id)
+  def webhook_delete(webhook_id, env_name)
     Twitter::REST::Request.new(@client, :delete, "/1.1/account_activity/all/#{env_name}/webhooks/#{webhook_id}.json", {}).perform
   end
 

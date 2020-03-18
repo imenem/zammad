@@ -114,8 +114,8 @@ module Channel::EmailBuild
         content_type = attachment.preferences['Content-Type'] || attachment.preferences['Mime-Type'] || 'application/octet-stream'
         mail.attachments[attachment.filename] = {
           content_disposition: "#{disposition}; filename=\"#{encoded_filename}\"",
-          content_type: "#{content_type}; filename=\"#{encoded_filename}\"",
-          content: attachment.content
+          content_type:        "#{content_type}; filename=\"#{encoded_filename}\"",
+          content:             attachment.content
         }
       end
     end
@@ -153,7 +153,7 @@ Check if string is a complete html document. If not, add head and css styles.
 
     return html if html.match?(/<html>/i)
 
-    html_email_body = File.read(Rails.root.join('app', 'views', 'mailer', 'application_wrapper.html.erb').to_s)
+    html_email_body = File.read(Rails.root.join('app/views/mailer/application_wrapper.html.erb').to_s)
 
     html_email_body.gsub!('###html_email_css_font###', Setting.get('html_email_css_font'))
 

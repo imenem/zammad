@@ -2,8 +2,8 @@
 
 class Link < ApplicationModel
 
-  belongs_to :link_type,   class_name: 'Link::Type'
-  belongs_to :link_object, class_name: 'Link::Object'
+  belongs_to :link_type,   class_name: 'Link::Type', optional: true
+  belongs_to :link_object, class_name: 'Link::Object', optional: true
 
   after_destroy :touch_link_references
 
@@ -89,7 +89,7 @@ class Link < ApplicationModel
       data[:link_object_source_id] = linkobject.id
       touch_reference_by_params(
         object: data[:link_object_source],
-        o_id: data[:link_object_source_value],
+        o_id:   data[:link_object_source_value],
       )
       data.delete(:link_object_source)
     end
@@ -99,7 +99,7 @@ class Link < ApplicationModel
       data[:link_object_target_id] = linkobject.id
       touch_reference_by_params(
         object: data[:link_object_target],
-        o_id: data[:link_object_target_value],
+        o_id:   data[:link_object_target_value],
       )
       data.delete(:link_object_target)
     end
@@ -136,10 +136,10 @@ class Link < ApplicationModel
       data[:link_type_id] = linktype.id
     end
     Link.where(
-      link_type_id: data[:link_type_id],
-      link_object_source_id: data[:link_object_source_id],
+      link_type_id:             data[:link_type_id],
+      link_object_source_id:    data[:link_object_source_id],
       link_object_source_value: data[:link_object_source_value],
-      link_object_target_id: data[:link_object_target_id],
+      link_object_target_id:    data[:link_object_target_id],
       link_object_target_value: data[:link_object_target_value]
     ).destroy_all
 
@@ -150,10 +150,10 @@ class Link < ApplicationModel
     end
 
     Link.where(
-      link_type_id: data[:link_type_id],
-      link_object_target_id: data[:link_object_source_id],
+      link_type_id:             data[:link_type_id],
+      link_object_target_id:    data[:link_object_source_id],
       link_object_target_value: data[:link_object_source_value],
-      link_object_source_id: data[:link_object_target_id],
+      link_object_source_id:    data[:link_object_target_id],
       link_object_source_value: data[:link_object_target_value]
     ).destroy_all
   end
@@ -174,11 +174,11 @@ class Link < ApplicationModel
     end
 
     Link.where(
-      link_object_target_id: data[:link_object_id],
+      link_object_target_id:    data[:link_object_id],
       link_object_target_value: data[:link_object_value],
     ).destroy_all
     Link.where(
-      link_object_source_id: data[:link_object_id],
+      link_object_source_id:    data[:link_object_id],
       link_object_source_value: data[:link_object_value],
     ).destroy_all
 
@@ -188,11 +188,11 @@ class Link < ApplicationModel
   def touch_link_references
     Link.touch_reference_by_params(
       object: Link::Object.lookup(id: link_object_source_id).name,
-      o_id: link_object_source_value,
+      o_id:   link_object_source_value,
     )
     Link.touch_reference_by_params(
       object: Link::Object.lookup(id: link_object_target_id).name,
-      o_id: link_object_target_value,
+      o_id:   link_object_target_value,
     )
   end
 
@@ -212,12 +212,36 @@ class Link < ApplicationModel
     linkobject
   end
 
-end
+=begin
 
-class Link::Type < ApplicationModel
-  validates :name, presence: true
-end
+  Update assets according to given references list
 
-class Link::Object < ApplicationModel
-  validates :name, presence: true
+  @param assets [Hash] hash with assets
+  @param link_references [Array<Hash>] @see #list
+  @return [Hash] assets including linked items
+
+  @example Link.reduce_assets(assets, link_references)
+
+=end
+
+  def self.reduce_assets(assets, link_references)
+    link_items = link_references
+                 .map { |elem| lookup_linked_object(elem) }
+                 .compact
+
+    ApplicationModel::CanAssets.reduce(link_items, assets)
+  end
+
+  def self.lookup_linked_object(elem)
+    klass = elem['link_object'].safe_constantize
+    id    = elem['link_object_value']
+
+    case klass.to_s
+    when KnowledgeBase::Answer::Translation.to_s
+      Setting.get('kb_active') ? klass.lookup(id: id) : nil
+    else
+      klass&.lookup(id: id)
+    end
+  end
+
 end

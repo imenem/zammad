@@ -4,13 +4,18 @@ require_dependency 'store/object'
 require_dependency 'store/file'
 
 class Store < ApplicationModel
+  PREFERENCES_SIZE_MAX = 2400
 
-  belongs_to :store_object, class_name: 'Store::Object'
-  belongs_to :store_file,   class_name: 'Store::File'
+  belongs_to :store_object, class_name: 'Store::Object', optional: true
+  belongs_to :store_file,   class_name: 'Store::File', optional: true
 
   validates :filename, presence: true
 
   store :preferences
+
+  after_create :generate_previews
+  before_create :oversized_preferences_check
+  before_update :oversized_preferences_check
 
 =begin
 
@@ -34,7 +39,7 @@ returns
 =end
 
   def self.add(data)
-    data = data.stringify_keys
+    data.deep_stringify_keys!
 
     # lookup store_object.id
     store_object = Store::Object.create_if_not_exists(name: data['object'])
@@ -50,10 +55,7 @@ returns
     data.delete('data')
     data.delete('object')
 
-    # store meta data
-    store = Store.create!(data)
-
-    store
+    Store.create!(data)
   end
 
 =begin
@@ -85,7 +87,7 @@ returns
     # search
     store_object_id = Store::Object.lookup(name: data[:object])
     stores = Store.where(store_object_id: store_object_id, o_id: data[:o_id].to_i)
-                  .order('created_at ASC, id ASC')
+                  .order(created_at: :asc)
     stores
   end
 
@@ -109,7 +111,7 @@ returns
     store_object_id = Store::Object.lookup(name: data[:object])
     stores = Store.where(store_object_id: store_object_id)
                   .where(o_id: data[:o_id])
-                  .order('created_at ASC, id ASC')
+                  .order(created_at: :asc)
     stores.each do |store|
 
       # check backend for references
@@ -165,6 +167,52 @@ returns
 
 =begin
 
+get content of file in preview size
+
+  store = Store.find(store_id)
+  content_as_string = store.content_preview
+
+returns
+
+  content_as_string
+
+=end
+
+  def content_preview(options = {})
+    file = Store::File.find_by(id: store_file_id)
+    if !file
+      raise "No such file #{store_file_id}!"
+    end
+    raise 'Unable to generate preview' if options[:silence] != true && preferences[:content_preview] != true
+
+    image_resize(file.content, 200)
+  end
+
+=begin
+
+get content of file in inline size
+
+  store = Store.find(store_id)
+  content_as_string = store.content_inline
+
+returns
+
+  content_as_string
+
+=end
+
+  def content_inline(options = {})
+    file = Store::File.find_by(id: store_file_id)
+    if !file
+      raise "No such file #{store_file_id}!"
+    end
+    raise 'Unable to generate inline' if options[:silence] != true && preferences[:content_inline] != true
+
+    image_resize(file.content, 1800)
+  end
+
+=begin
+
 get content of file
 
   store = Store.find(store_id)
@@ -203,5 +251,105 @@ returns
     end
 
     file.provider
+  end
+
+  private
+
+  def generate_previews
+    return true if Setting.get('import_mode')
+
+    resizable = preferences.slice('Mime-Type', 'Content-Type', 'mime_type', 'content_type')
+                           .values.grep(%r{image/(jpeg|jpg|png)}i).any?
+
+    begin
+      if resizable
+        if content_preview(silence: true)
+          preferences[:resizable] = true
+          preferences[:content_preview] = true
+        end
+        if content_inline(silence: true)
+          preferences[:resizable] = true
+          preferences[:content_inline] = true
+        end
+        if preferences[:resizable]
+          save!
+        end
+      end
+    rescue => e
+      logger.error e
+      preferences[:resizable] = false
+      save!
+    end
+  end
+
+  def image_resize(content, width)
+    local_sha = Digest::SHA256.hexdigest(content)
+
+    cache_key = "image-resize-#{local_sha}_#{width}"
+    image = Cache.get(cache_key)
+    return image if image
+
+    temp_file = ::Tempfile.new
+    temp_file.binmode
+    temp_file.write(content)
+    temp_file.close
+    image = Rszr::Image.load(temp_file.path)
+
+    # do not resize image if image is smaller or already same size
+    return if image.width <= width
+
+    # do not resize image if new height is smaller then 7px (images
+    # with small height are usually useful to resize)
+    ratio = image.width / width
+    return if image.height / ratio <= 6
+
+    image.resize!(width, :auto)
+    temp_file_resize = ::Tempfile.new.path
+    image.save(temp_file_resize)
+    image_resized = ::File.binread(temp_file_resize)
+
+    Cache.write(cache_key, image_resized, { expires_in: 6.months })
+
+    image_resized
+  end
+
+  def oversized_preferences_check
+    return true if oversized_preferences_removed_by_content?(600)
+    return true if oversized_preferences_removed_by_key?(100)
+    return true if oversized_preferences_removed_by_content?(300)
+    return true if oversized_preferences_removed_by_key?(60)
+
+    true
+  end
+
+  def oversized_preferences_removed_by_content?(max_char)
+    oversized_preferences_removed? do |_key, content|
+      content.try(:size).to_i > max_char
+    end
+  end
+
+  def oversized_preferences_removed_by_key?(max_char)
+    oversized_preferences_removed? do |key, _content|
+      key.try(:size).to_i > max_char
+    end
+  end
+
+  def oversized_preferences_removed?
+    return true if !oversized_preferences_present?
+
+    preferences&.each do |key, content|
+      next if !yield(key, content)
+
+      preferences.delete(key)
+      Rails.logger.info "Removed oversized #{self.class.name} preference: '#{key}', '#{content}'"
+
+      break if !oversized_preferences_present?
+    end
+
+    !oversized_preferences_present?
+  end
+
+  def oversized_preferences_present?
+    preferences.to_yaml.size > PREFERENCES_SIZE_MAX
   end
 end

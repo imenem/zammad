@@ -18,11 +18,11 @@ RSpec.describe 'Idoit', type: :request do
     'https://idoit.example.com/i-doit/'
   end
 
-  before(:each) do
+  before do
     Setting.set('idoit_integration', true)
     Setting.set('idoit_config', {
                   api_token: token,
-                  endpoint: endpoint,
+                  endpoint:  endpoint,
                   client_id: '',
                 })
   end
@@ -33,30 +33,30 @@ RSpec.describe 'Idoit', type: :request do
 
       params = {
         api_token: token,
-        endpoint: endpoint,
+        endpoint:  endpoint,
         client_id: '',
       }
       authenticated_as(agent_user)
       post '/api/v1/integration/idoit/verify', params: params, as: :json
-      expect(response).to have_http_status(401)
+      expect(response).to have_http_status(:unauthorized)
       expect(json_response).to be_a_kind_of(Hash)
-      expect(json_response).to_not be_blank
+      expect(json_response).not_to be_blank
       expect(json_response['error']).to eq('Not authorized (user)!')
 
       stub_request(:post, "#{endpoint}src/jsonrpc.php")
-        .with(body: "{\"method\":\"cmdb.object_types\",\"params\":{\"apikey\":\"#{token}\"},\"version\":\"2.0\"}")
+        .with(body: "{\"method\":\"cmdb.object_types\",\"params\":{\"apikey\":\"#{token}\"},\"version\":\"2.0\",\"id\":42}")
         .to_return(status: 200, body: read_message('object_types_response'), headers: {})
 
       params = {
         api_token: token,
-        endpoint: endpoint,
+        endpoint:  endpoint,
         client_id: '',
       }
       authenticated_as(admin_user)
       post '/api/v1/integration/idoit/verify', params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
-      expect(json_response).to_not be_blank
+      expect(json_response).not_to be_blank
       expect(json_response['result']).to eq('ok')
       expect(json_response['response']).to be_truthy
       expect(json_response['response']['jsonrpc']).to eq('2.0')
@@ -64,13 +64,13 @@ RSpec.describe 'Idoit', type: :request do
 
       params = {
         api_token: token,
-        endpoint: " #{endpoint}/",
+        endpoint:  " #{endpoint}/",
         client_id: '',
       }
       post '/api/v1/integration/idoit/verify', params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
       expect(json_response).to be_a_kind_of(Hash)
-      expect(json_response).to_not be_blank
+      expect(json_response).not_to be_blank
       expect(json_response['result']).to eq('ok')
       expect(json_response['response']).to be_truthy
       expect(json_response['response']['jsonrpc']).to eq('2.0')
@@ -81,7 +81,7 @@ RSpec.describe 'Idoit', type: :request do
     it 'does list all object types' do
 
       stub_request(:post, "#{endpoint}src/jsonrpc.php")
-        .with(body: "{\"method\":\"cmdb.object_types\",\"params\":{\"apikey\":\"#{token}\"},\"version\":\"2.0\"}")
+        .with(body: "{\"method\":\"cmdb.object_types\",\"params\":{\"apikey\":\"#{token}\"},\"version\":\"2.0\",\"id\":42}")
         .to_return(status: 200, body: read_message('object_types_response'), headers: {})
 
       params = {
@@ -89,10 +89,10 @@ RSpec.describe 'Idoit', type: :request do
       }
       authenticated_as(agent_user)
       post '/api/v1/integration/idoit', params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
 
       expect(json_response).to be_a_kind_of(Hash)
-      expect(json_response).to_not be_blank
+      expect(json_response).not_to be_blank
       expect(json_response['result']).to eq('ok')
       expect(json_response['response']).to be_truthy
       expect(json_response['response']['jsonrpc']).to eq('2.0')
@@ -105,10 +105,10 @@ RSpec.describe 'Idoit', type: :request do
       }
       authenticated_as(admin_user)
       post '/api/v1/integration/idoit', params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
 
       expect(json_response).to be_a_kind_of(Hash)
-      expect(json_response).to_not be_blank
+      expect(json_response).not_to be_blank
       expect(json_response['result']).to eq('ok')
       expect(json_response['response']).to be_truthy
       expect(json_response['response']['jsonrpc']).to eq('2.0')
@@ -121,7 +121,7 @@ RSpec.describe 'Idoit', type: :request do
     it 'does query objects' do
 
       stub_request(:post, "#{endpoint}src/jsonrpc.php")
-        .with(body: "{\"method\":\"cmdb.objects\",\"params\":{\"apikey\":\"#{token}\",\"filter\":{\"ids\":[\"33\"]}},\"version\":\"2.0\"}")
+        .with(body: "{\"method\":\"cmdb.objects\",\"params\":{\"apikey\":\"#{token}\",\"filter\":{\"ids\":[\"33\"]}},\"version\":\"2.0\",\"id\":42}")
         .to_return(status: 200, body: read_message('object_types_filter_response'), headers: {})
 
       params = {
@@ -132,10 +132,10 @@ RSpec.describe 'Idoit', type: :request do
       }
       authenticated_as(agent_user)
       post '/api/v1/integration/idoit', params: params, as: :json
-      expect(response).to have_http_status(200)
+      expect(response).to have_http_status(:ok)
 
       expect(json_response).to be_a_kind_of(Hash)
-      expect(json_response).to_not be_blank
+      expect(json_response).not_to be_blank
       expect(json_response['result']).to eq('ok')
       expect(json_response['response']).to be_truthy
       expect(json_response['response']['jsonrpc']).to eq('2.0')
