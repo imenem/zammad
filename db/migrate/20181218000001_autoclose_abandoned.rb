@@ -1,5 +1,8 @@
 class AutocloseAbandoned < ActiveRecord::Migration[5.1]
   def up
+    # return if it's a new setup
+    return if !Setting.find_by(name: 'system_init_done')
+
     Scheduler.create_if_not_exists(
       name: 'Close abandoned tickets',
       method: 'Ticket.process_abandoned',
